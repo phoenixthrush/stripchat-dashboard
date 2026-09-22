@@ -1,9 +1,12 @@
 import json
 import os
 import sys
+
+if sys.version_info < (3, 11):  # noqa: UP036 — explain unsupported Python when run directly
+    raise SystemExit("Python 3.11 or newer is required.")
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -92,9 +95,9 @@ def parse_transaction_date(value: Any) -> datetime | None:
         return None
 
     if date.tzinfo is None:
-        date = date.replace(tzinfo=timezone.utc)
+        date = date.replace(tzinfo=UTC)
 
-    return date.astimezone(timezone.utc)
+    return date.astimezone(UTC)
 
 
 def is_vr_transaction(transaction: dict[str, Any]) -> bool:

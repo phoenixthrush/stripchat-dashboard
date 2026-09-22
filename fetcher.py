@@ -2,10 +2,13 @@ import json
 import math
 import os
 import sys
+
+if sys.version_info < (3, 11):  # noqa: UP036 — explain unsupported Python when run directly
+    raise SystemExit("Python 3.11 or newer is required.")
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import mkstemp
 from typing import Any
@@ -81,7 +84,7 @@ def load_config() -> Config:
         start_date=os.getenv("STRIPCHAT_START_DATE", DEFAULT_START_DATE).strip(),
         end_date=os.getenv(
             "STRIPCHAT_END_DATE",
-            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         ).strip(),
         page_size=min(page_size, DEFAULT_PAGE_SIZE),
         output_file=output_path(),

@@ -1,3 +1,8 @@
+import sys
+
+if sys.version_info < (3, 11):  # noqa: UP036 — explain unsupported Python when run directly
+    raise SystemExit("Python 3.11 or newer is required.")
+
 import matplotlib.pyplot as plt
 
 xp_by_level = {

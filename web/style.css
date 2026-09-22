@@ -8,3 +8,12 @@
 @media(prefers-reduced-motion:reduce){:root{scroll-behavior:auto}*{transition:none!important}}
 @media(max-width:540px){.filters label{flex:1 1 135px}.filters label:last-of-type{flex-basis:100%}}
 @media(max-width:800px){nav{min-height:42px;align-items:center;scrollbar-width:none}nav::-webkit-scrollbar{display:none}nav a{flex-shrink:0}}
+
+/* Stripchat Dashboard branding and cost presentation. */
+.brand-name{font-size:22px;line-height:1.1;letter-spacing:-.7px}.brand-name small{display:block;font-size:12px;font-weight:400;letter-spacing:1.8px;margin-top:7px;color:var(--muted)}
+.brand.small{font-size:14px;letter-spacing:-.2px}.cost-stats .stat{border-top:2px solid var(--mint)}.cost-stats .stat-number{font-size:28px}.pricing-details{margin:0 0 18px}.pricing-details p{font-size:12px;color:var(--muted);max-width:1050px}.cost-extras{margin-top:18px}.profile-link{color:var(--text);text-decoration:underline;text-decoration-color:var(--border);text-underline-offset:3px}.profile-link:hover{color:var(--mint);text-decoration-color:var(--mint)}.cost-secondary{display:block;color:var(--muted);font-size:10px;margin-top:2px}.chart-unit{font-size:10px;color:var(--muted);margin-bottom:8px}
+@media(max-width:540px){.cost-stats .stat-number{font-size:24px}.brand-name{font-size:20px}.brand-name small{font-size:10px}.filters label{flex:1 1 135px}.filters label:last-of-type{flex-basis:135px}}
+
+.token-value{cursor:help;text-decoration:underline dotted var(--muted);text-underline-offset:4px;text-decoration-thickness:1px}.token-value:focus-visible{outline:2px solid var(--mint);outline-offset:3px;border-radius:2px}.euro-summary{margin:24px 0}.pricing-more{margin-top:18px}.calendar-caption{font-size:11px;color:var(--muted);margin:10px 0 0;white-space:normal}.heat-scroll svg text{font-family:inherit;font-size:10px}.heat-scroll{padding-top:12px}
+
+.reconciliation{margin-bottom:18px}.token-equation{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:20px 0}.token-equation small{display:block;color:var(--muted);font-size:11px;margin-bottom:7px}.token-equation strong{font-size:24px;font-weight:550}.token-equation>span{color:var(--muted);font-size:22px}.adjustment-breakdown{display:flex;gap:12px;flex-wrap:wrap}.adjustment-breakdown>div{display:flex;gap:18px;align-items:center;padding:10px 13px;background:var(--bg);border:1px solid var(--border);border-radius:7px;font-size:12px}.adjustment-breakdown span{color:var(--muted)}.reconciliation .footnote{margin-bottom:0}

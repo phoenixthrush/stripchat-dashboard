@@ -4,8 +4,12 @@ import argparse
 import json
 import math
 import secrets
+import sys
 import threading
-from datetime import datetime, timezone
+
+if sys.version_info < (3, 11):  # noqa: UP036 — explain unsupported Python when run directly
+    raise SystemExit("Stripchat Dashboard requires Python 3.11 or newer.")
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
@@ -23,6 +27,7 @@ from manual.summarize_payments import (
     parse_transaction_date,
     prepare_records,
 )
+from pricing import estimate_costs
 
 WEB = ROOT / "web"
 REFRESH_TOKEN = secrets.token_urlsafe(32)
@@ -76,7 +81,10 @@ def normalize_export(data):
             }
         )
     rows.sort(key=lambda r: r["date"])
+    with (WEB / "reference.json").open(encoding="utf-8") as stream:
+        pricing = estimate_costs(rows, json.load(stream))
     return {
+        "pricing": pricing,
         "transactions": rows,
         "skipped": skipped,
         "from": data.get("from") if isinstance(data, dict) else None,
@@ -93,7 +101,7 @@ def cached_data():
         result = normalize_export(json.load(stream))
     result.update(
         exists=True,
-        saved_at=datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
+        saved_at=datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(),
     )
     return result
 
@@ -119,7 +127,7 @@ def refresh_worker():
             "count": len(rows),
             "transactions": rows,
             "api_totals": metadata,
-            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "fetched_at": datetime.now(UTC).isoformat(),
         }
         # Validate before replacing the last successful export.
         normalized = normalize_export(data)
