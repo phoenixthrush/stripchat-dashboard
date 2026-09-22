@@ -62,6 +62,7 @@ The frontend talks to the local Python server, not directly to Stripchat. Python
 | `pricing.py` | Package matching, fallback rates and chronological FIFO allocation |
 | `web/reference.json` | Static token-package prices and XP thresholds |
 | `web/app.js` | Filters, totals, charts, euro tooltips and CSV export |
+| `web/planner.js` | Account level settings, XP targets, bonuses and future package planning |
 | `web/index.html`, `web/style.css` | Page structure, styling and themes |
 | `manual/` | Preserved terminal summary and plotting tools |
 
@@ -145,6 +146,27 @@ Date boundaries are inclusive UTC calendar dates. Initial inputs use the earlies
 API `inUsd` / `outUsd` fields remain unverified, unfiltered reference values and are not used in euro estimates. Taxes, fees, promotions, historic price changes and payment-method differences can make actual charges differ.
 
 Package prices and XP thresholds are copied from the original plotting scripts. They are static reference data, not current offers, confirmed rules, or your account's actual XP. The calendar shows the last 365 days of the selected interval. Rankings show the top ten; the recipient table includes everyone.
+
+## Account level planner
+
+The final section integrates the supplied standalone XP, Token, and Money Calculator into the dashboard theme. It supports target levels, leagues and feature unlocks, watching plans, email and first-purchase bonuses, and a package breakdown with extra purchased tokens.
+
+The payments export has **no current account level or XP**. Choose your current level once; it and optional total account XP are remembered in this browser’s local storage and selected on subsequent visits. These are user-entered settings, not a live account lookup. Update them when you level up or switch accounts. With no saved setting, the planner asks for your level rather than inferring it from spending. The default target is the next level (capped at 100). Without exact XP, the calculation starts at your selected level’s minimum threshold. Exact XP must fall within that level’s range.
+
+Available tokens default to the nonnegative net movement of the **full** saved history, independently of dashboard filters. This may differ from a live balance if history is incomplete; edit it as needed. The optional balance deduction reduces tokens to buy, not tokens to spend for XP. An edited balance lasts for this page session; level and XP persist across reloads.
+
+The imported planning assumptions are 5 XP per spent token, 1 watching XP per 15 minutes capped at level 9, an optional unclaimed 5 XP email bonus below level 10, and an optional eligible 500 XP first-purchase bonus when crossing into Bronze. Bonuses are capped at the XP still required. The first-purchase bonus defaults off when saved purchases exist. Including it requires buying at least one package, even if bonus XP alone reaches the target. These assumptions and unlocks are static references, not verified current rules or account entitlements.
+
+```text
+raw XP = max(0, target threshold − current XP)
+paid XP = max(0, raw XP − applicable planned bonuses)
+tokens to spend = ceil(paid XP / 5)
+tokens to buy = max(0, tokens to spend − available tokens used)
+```
+
+Package planning preserves the original policy: buy `floor(tokens to buy / 2250)` full 2,250-token packages, then use dynamic programming to find the cheapest combination of smaller packages covering the remainder. Prices are calculated in integer cents; equal-cost solutions prefer fewer bought tokens. This is the cheapest remainder under that policy, **not** a global optimum across all packages. For an eligible first-purchase bonus with zero tokens otherwise needed, the smallest qualifying purchase is still planned.
+
+The six original planner packages, league ranges and feature unlocks live in `web/reference.json` under `level_planner`. The XP thresholds reuse `xp_by_level` (identical in the supplied calculator). Future package costs are separate from historical FIFO estimates and do not change them. No requests to Stripchat or purchases occur when using the planner. It shares the existing theme and needs no additional dependencies.
 
 ## Preserved terminal tools
 

@@ -228,31 +228,31 @@
     "paysafecard_packages": [
         {
             "tokens": 80,
-            "price": 10.0
+            "price": 10
         },
         {
             "tokens": 120,
-            "price": 15.0
+            "price": 15
         },
         {
             "tokens": 160,
-            "price": 20.0
+            "price": 20
         },
         {
             "tokens": 220,
-            "price": 25.0
+            "price": 25
         },
         {
             "tokens": 265,
-            "price": 30.0
+            "price": 30
         },
         {
             "tokens": 480,
-            "price": 50.0
+            "price": 50
         },
         {
             "tokens": 1000,
-            "price": 100.0
+            "price": 100
         }
     ],
     "wero_packages": [
@@ -306,5 +306,102 @@
             "tokens": 2250,
             "price": 199.99
         }
-    ]
+    ],
+    "level_planner": {
+        "packages": [
+            {
+                "tokens": 86,
+                "price": 9.99
+            },
+            {
+                "tokens": 200,
+                "price": 20.99
+            },
+            {
+                "tokens": 520,
+                "price": 49.99
+            },
+            {
+                "tokens": 730,
+                "price": 69.99
+            },
+            {
+                "tokens": 1275,
+                "price": 119.99
+            },
+            {
+                "tokens": 2250,
+                "price": 199.99
+            }
+        ],
+        "leagues": [
+            {
+                "name": "Grey",
+                "min": 1,
+                "max": 9
+            },
+            {
+                "name": "Bronze",
+                "min": 10,
+                "max": 19
+            },
+            {
+                "name": "Silver",
+                "min": 20,
+                "max": 34
+            },
+            {
+                "name": "Gold",
+                "min": 35,
+                "max": 54
+            },
+            {
+                "name": "Diamond",
+                "min": 55,
+                "max": 79
+            },
+            {
+                "name": "Royal",
+                "min": 80,
+                "max": 99
+            },
+            {
+                "name": "Legend",
+                "min": 100,
+                "max": 100
+            }
+        ],
+        "features": [
+            {
+                "key": "publicAlbums",
+                "label": "Public albums",
+                "level": 10
+            },
+            {
+                "key": "cannotExGold",
+                "label": "Cannot become ex-Gold",
+                "level": 35
+            },
+            {
+                "key": "maskMode",
+                "label": "Mask mode",
+                "level": 55
+            },
+            {
+                "key": "ultimateMembership",
+                "label": "Ultimate membership for life",
+                "level": 80
+            },
+            {
+                "key": "concierge",
+                "label": "24/7 concierge support",
+                "level": 80
+            },
+            {
+                "key": "legendBadge",
+                "label": "Legend red star badge",
+                "level": 100
+            }
+        ]
+    }
 }

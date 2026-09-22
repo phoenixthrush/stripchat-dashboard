@@ -8,12 +8,14 @@
     <title>Stripchat Dashboard</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/style.css">
+    <script src="/planner.js" defer></script>
     <script src="/app.js" defer></script>
 </head>
 
 <body>
     <aside class="sidebar">
-        <a class="brand" href="#overview"><span class="brand-icon">◈</span><span class="brand-name">Stripchat<small>Dashboard</small></span></a>
+        <a class="brand" href="#overview"><span class="brand-icon">◈</span><span
+                class="brand-name">Stripchat<small>Dashboard</small></span></a>
         <p class="eyebrow sidebar-label">YOUR TOKEN STORY</p>
         <nav aria-label="Dashboard sections">
             <a href="#overview" class="active"><span>◫</span> Overview</a>
@@ -23,6 +25,7 @@
             <a href="#people"><span>♧</span> Recipients</a>
             <a href="#transactions"><span>≡</span> Transactions</a>
             <a href="#reference"><span>⌁</span> Reference lab</a>
+            <a href="#level-planner"><span>↟</span> Level planner</a>
         </nav>
         <div class="sidebar-bottom"><span class="local-dot"></span> Local & private<p>Your data stays on this
                 device.<br>No analytics. No external assets.</p><button id="theme" class="theme-button"
@@ -59,13 +62,17 @@
             <div id="stats" class="stats"></div>
             <article class="card reconciliation">
                 <div class="card-head">
-                    <div><h3>Where the tokens went</h3><p>Purchases, spending and adjustments in the selected history</p></div>
+                    <div>
+                        <h3>Where the tokens went</h3>
+                        <p>Purchases, spending and adjustments in the selected history</p>
+                    </div>
                     <button id="show-adjustments" type="button">View adjustments</button>
                 </div>
                 <div id="token-reconciliation" class="token-equation"></div>
                 <p id="adjustment-explanation"></p>
                 <div id="adjustment-breakdown" class="adjustment-breakdown"></div>
-                <p class="footnote">Net change is calculated from the selected records, not a live account balance. Euro hovers estimate token value; they do not confirm cash refunds.</p>
+                <p class="footnote">Net change is calculated from the selected records, not a live account balance. Euro
+                    hovers estimate token value; they do not confirm cash refunds.</p>
             </article>
             <div class="grid">
                 <article class="card wide">
@@ -98,8 +105,39 @@
                 <div id="monthly-table" class="table-wrap"></div>
             </details>
         </section>
-        <details class="card detail-card euro-summary" id="euro-summary"><summary>Euro summary <span>Optional package-based estimates</span></summary><div id="cost-stats" class="stats cost-stats"></div><details class="card detail-card pricing-details"><summary>How euro estimates work <span>Saved package prices · oldest purchases used first</span></summary><p id="pricing-note"></p><p>These are estimates from reference prices, not receipts. Payment method, promotions, taxes and fees are unknown. Costs are allocated across the entire saved history before filters are applied. Other credits and missing opening tokens use the fallback rate; all outgoing transactions consume available tokens.</p></details><details class="pricing-more"><summary>Package pricing details</summary><div class="grid two cost-extras"><article class="card"><h3>What each token cost</h3><p>Estimated euro cost per purchased token, by top-up</p><div id="purchase-rate-chart" class="chart"></div></article><article class="card"><h3>Where your cost estimate comes from</h3><p>Spending value allocated to matched packages and fallback-priced tokens</p><div id="cost-basis-chart"></div></article><article class="card full"><h3>Your purchase prices</h3><p>Package-size matches against saved constants · estimated, not billed amounts</p><div id="purchase-cost-table" class="table-wrap"></div></article></div>
-            </details></details>
+        <details class="card detail-card euro-summary" id="euro-summary">
+            <summary>Euro summary <span>Optional package-based estimates</span></summary>
+            <div id="cost-stats" class="stats cost-stats"></div>
+            <details class="card detail-card pricing-details">
+                <summary>How euro estimates work <span>Saved package prices · oldest purchases used first</span>
+                </summary>
+                <p id="pricing-note"></p>
+                <p>These are estimates from reference prices, not receipts. Payment method, promotions, taxes and fees
+                    are unknown. Costs are allocated across the entire saved history before filters are applied. Other
+                    credits and missing opening tokens use the fallback rate; all outgoing transactions consume
+                    available tokens.</p>
+            </details>
+            <details class="pricing-more">
+                <summary>Package pricing details</summary>
+                <div class="grid two cost-extras">
+                    <article class="card">
+                        <h3>What each token cost</h3>
+                        <p>Estimated euro cost per purchased token, by top-up</p>
+                        <div id="purchase-rate-chart" class="chart"></div>
+                    </article>
+                    <article class="card">
+                        <h3>Where your cost estimate comes from</h3>
+                        <p>Spending value allocated to matched packages and fallback-priced tokens</p>
+                        <div id="cost-basis-chart"></div>
+                    </article>
+                    <article class="card full">
+                        <h3>Your purchase prices</h3>
+                        <p>Package-size matches against saved constants · estimated, not billed amounts</p>
+                        <div id="purchase-cost-table" class="table-wrap"></div>
+                    </article>
+                </div>
+            </details>
+        </details>
         <section id="purchases">
             <div class="section-head">
                 <div>
@@ -131,7 +169,9 @@
                 </article>
             </div>
             <p id="history-range" class="footnote"></p>
-            <p class="footnote">Purchase amounts are not reliable currency totals in this export. Euro estimates use the saved package prices and FIFO allocation. They are not verified charges. Adjustments remain separate from purchases and spending.</p>
+            <p class="footnote">Purchase amounts are not reliable currency totals in this export. Euro estimates use the
+                saved package prices and FIFO allocation. They are not verified charges. Adjustments remain separate
+                from purchases and spending.</p>
             <details class="card detail-card">
                 <summary>API totals from the last pull <span>Unfiltered reference values</span></summary>
                 <div id="api-totals"></div>
@@ -306,17 +346,93 @@
                     <p>Additional XP needed to reach the next level</p>
                     <div id="xp-step-chart" class="chart"></div>
                 </article>
-                <article class="card full xp-explorer">
-                    <div>
-                        <h3>Explore a level</h3>
-                        <p>Reference thresholds only; this does not estimate your account XP.</p>
-                    </div><label>Level <output id="level-value">50</output><input id="level" type="range" min="1"
-                            max="100" value="50"></label>
-                    <div id="level-stats"></div>
-                </article>
             </div>
         </section>
-        <footer><span class="brand small">Stripchat Dashboard</span><span>Built for your own perspective. Everything stays
+        <section id="level-planner">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">08 / YOUR NEXT LEVEL</p>
+                    <h2>Your level planner</h2>
+                </div><span class="badge">STATIC ESTIMATE</span>
+            </div>
+            <p class="section-description">Plan from your current level to a level, league or feature. Your account
+                settings stay in this browser; history filters do not change this plan.</p>
+            <article class="card">
+                <h3>Your starting point</h3>
+                <p id="planner-account-note">Enter your current level once to save it as your default. The payments
+                    export does not contain account XP.</p>
+                <div class="planner-controls">
+                    <label>Current level<select id="planner-current">
+                            <option value="">Choose your level</option>
+                        </select></label>
+                    <label>Total account XP (optional)<input id="planner-xp" type="number" min="0" step="1"
+                            placeholder="Use level threshold"></label>
+                    <label>Available tokens<input id="planner-balance" type="number" min="0" step="1" value="0"></label>
+                    <label class="planner-check"><input id="planner-use-balance" type="checkbox" checked>Use available
+                        tokens first</label>
+                </div>
+                <p class="footnote">Available tokens start from the full saved history’s net movement, not a live
+                    balance. You can correct the value. Exact XP improves estimates; otherwise the plan starts at your
+                    level’s minimum XP.</p>
+                <div class="planner-controls">
+                    <label>Target type<select id="planner-target-type">
+                            <option value="level">Level</option>
+                            <option value="league">League</option>
+                            <option value="feature">Feature</option>
+                        </select></label>
+                    <label id="planner-level-wrap">Target level<select id="planner-target-level"></select></label>
+                    <label id="planner-league-wrap" hidden>Target league<select
+                            id="planner-target-league"></select></label>
+                    <label id="planner-feature-wrap" hidden>Target feature<select
+                            id="planner-target-feature"></select></label>
+                </div>
+                <details class="planner-helpers">
+                    <summary>XP helpers and bonuses</summary>
+                    <div class="planner-controls">
+                        <label>Planned watch minutes<input id="planner-watch" type="number" min="0" step="15"
+                                value="0"></label>
+                        <label class="planner-check"><input id="planner-watch-enabled" type="checkbox">Include watching
+                            XP</label>
+                        <label class="planner-check"><input id="planner-email" type="checkbox">Include unclaimed email
+                            bonus (+5 XP)</label>
+                        <label class="planner-check"><input id="planner-bronze" type="checkbox">Include eligible
+                            first-purchase bonus (+500 XP)</label>
+                    </div>
+                    <p class="footnote">Imported assumptions: 5 XP per token spent; 1 watching XP per 15 minutes, capped
+                        at level 9; email bonus below level 10. The first-purchase bonus applies only when crossing into
+                        level 10 and requires a purchase. Enable only bonuses you have not already received.</p>
+                </details>
+                <p id="planner-message" role="status"></p>
+            </article>
+            <div id="planner-results" hidden>
+                <article class="card planner-output">
+                    <h3 id="planner-path"></h3>
+                    <div id="planner-progress"></div>
+                    <div id="planner-stats" class="mini-stats"></div>
+                    <div id="planner-plan"></div>
+                    <p id="planner-notes" class="footnote"></p>
+                </article>
+            </div>
+            <article class="card full xp-explorer">
+                <div>
+                    <h3>Explore a level</h3>
+                    <p>Reference thresholds only; this does not estimate your account XP.</p>
+                </div><label>Level <output id="level-value">50</output><input id="level" type="range" min="1" max="100"
+                        value="50"></label>
+                <div id="level-stats"></div>
+            </article>
+            <details class="card detail-card">
+                <summary>Leagues, unlocks and package reference <span>Imported calculator assumptions</span></summary>
+                <div id="planner-leagues" class="table-wrap"></div>
+                <div id="planner-packages" class="table-wrap"></div>
+                <p class="footnote">Community-reported XP thresholds and imported unlock rules may differ from current
+                    Stripchat rules. Package planning uses the original calculator’s six EUR packages: as many full
+                    2,250-token packs as possible, then the cheapest smaller-pack combination for the remainder. This
+                    policy is not a globally cheapest package search. No purchase is made.</p>
+            </details>
+        </section>
+        <footer><span class="brand small">Stripchat Dashboard</span><span>Built for your own perspective. Everything
+                stays
                 local.</span><a href="#overview">Back to top ↑</a></footer>
     </main>
     <div id="tooltip" role="tooltip" hidden></div>
