@@ -3,6 +3,7 @@ import math
 import os
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,8 +42,11 @@ def required_env(name: str) -> str:
     return value
 
 
+ROOT = Path(__file__).resolve().parent
+
+
 def load_config() -> Config:
-    load_dotenv()
+    load_dotenv(ROOT / ".env", override=True)
     user_id = required_env("STRIPCHAT_USER_ID")
     if not user_id.isdigit():
         raise RuntimeError("STRIPCHAT_USER_ID must contain only digits.")
@@ -79,12 +83,16 @@ def load_config() -> Config:
             "STRIPCHAT_END_DATE",
             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         ).strip(),
-        page_size=page_size,
-        output_file=Path(
-            os.getenv("STRIPCHAT_OUTPUT_FILE", DEFAULT_OUTPUT_FILE)
-        ).expanduser(),
+        page_size=min(page_size, DEFAULT_PAGE_SIZE),
+        output_file=output_path(),
         request_delay_seconds=request_delay,
     )
+
+
+def output_path() -> Path:
+    load_dotenv(ROOT / ".env", override=True)
+    path = Path(os.getenv("STRIPCHAT_OUTPUT_FILE", DEFAULT_OUTPUT_FILE)).expanduser()
+    return path if path.is_absolute() else ROOT / path
 
 
 def create_session(cookie: str, user_agent: str) -> requests.Session:
@@ -110,12 +118,17 @@ def get_reported_total(payload: dict[str, Any]) -> int | None:
     return total if total >= 0 else None
 
 
-def fetch_all_transactions(config: Config) -> list[dict[str, Any]]:
+def fetch_all_transactions(
+    config: Config,
+    progress: Callable[[str], None] = print,
+    metadata: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     base_url = f"https://stripchat.com/api/front/users/{config.user_id}/transactions"
 
     all_transactions: list[dict[str, Any]] = []
     offset = 0
     rate_limit_retries = 0
+    seen_ids: set[str] = set()
 
     with create_session(
         cookie=config.cookie,
@@ -129,7 +142,7 @@ def fetch_all_transactions(config: Config) -> list[dict[str, Any]]:
                 "offset": offset,
             }
 
-            print(f"Fetching offset {offset}...")
+            progress(f"Fetching offset {offset}...")
 
             try:
                 response = session.get(
@@ -163,7 +176,7 @@ def fetch_all_transactions(config: Config) -> list[dict[str, Any]]:
 
                 retry_after = max(1.0, min(retry_after, MAX_RETRY_DELAY_SECONDS))
 
-                print(
+                progress(
                     f"Rate limited. Waiting {retry_after:g} seconds "
                     f"before retry {rate_limit_retries}/{MAX_RATE_LIMIT_RETRIES}..."
                 )
@@ -191,7 +204,25 @@ def fetch_all_transactions(config: Config) -> list[dict[str, Any]]:
                     "is not an object."
                 )
 
-            transactions = payload.get("transactions", [])
+            if "transactions" not in payload:
+                raise RuntimeError(
+                    "The API response is missing transactions; saved data was kept."
+                )
+            if metadata is not None and offset == 0:
+                metadata.update(
+                    {
+                        key: payload[key]
+                        for key in (
+                            "inTokens",
+                            "outTokens",
+                            "inUsd",
+                            "outUsd",
+                            "numberOfTransactions",
+                        )
+                        if key in payload
+                    }
+                )
+            transactions = payload["transactions"]
 
             if not isinstance(transactions, list):
                 raise TypeError(
@@ -201,7 +232,14 @@ def fetch_all_transactions(config: Config) -> list[dict[str, Any]]:
             reported_total = get_reported_total(payload)
 
             if not transactions:
-                print("No more transactions returned.")
+                if (
+                    reported_total is not None
+                    and len(all_transactions) < reported_total
+                ):
+                    raise RuntimeError(
+                        "The API returned an incomplete history; saved data was kept."
+                    )
+                progress("No more transactions returned.")
                 break
 
             valid_transactions = [
@@ -210,11 +248,19 @@ def fetch_all_transactions(config: Config) -> list[dict[str, Any]]:
                 if isinstance(transaction, dict)
             ]
 
+            if len(valid_transactions) != len(transactions):
+                raise RuntimeError(
+                    "The API returned invalid records; saved data was kept."
+                )
+            page_ids = [str(t["id"]) for t in transactions if t.get("id") is not None]
+            if page_ids and all(i in seen_ids for i in page_ids):
+                raise RuntimeError("The API repeated a page; saved data was kept.")
+            seen_ids.update(page_ids)
             all_transactions.extend(valid_transactions)
 
             total_text = f"/{reported_total}" if reported_total is not None else ""
 
-            print(
+            progress(
                 f"Received {len(valid_transactions)} transactions "
                 f"({len(all_transactions)}{total_text} collected)"
             )
@@ -222,7 +268,7 @@ def fetch_all_transactions(config: Config) -> list[dict[str, Any]]:
             if reported_total is not None and len(all_transactions) >= reported_total:
                 break
 
-            if len(transactions) < config.page_size:
+            if reported_total is None and len(transactions) < config.page_size:
                 break
 
             offset += len(transactions)

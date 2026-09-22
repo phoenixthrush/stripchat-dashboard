@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Ledger · Token dashboard</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" defer></script>
+</head>
+
+<body>
+    <aside class="sidebar">
+        <a class="brand" href="#overview"><span class="brand-icon">◈</span> ledger<span class="brand-dot">.</span></a>
+        <p class="eyebrow sidebar-label">YOUR TOKEN STORY</p>
+        <nav aria-label="Dashboard sections">
+            <a href="#overview" class="active"><span>◫</span> Overview</a>
+            <a href="#purchases"><span>↗</span> Purchases</a>
+            <a href="#spending"><span>◷</span> Spending</a>
+            <a href="#activity"><span>▦</span> Activity</a>
+            <a href="#people"><span>♧</span> Recipients</a>
+            <a href="#transactions"><span>≡</span> Transactions</a>
+            <a href="#reference"><span>⌁</span> Reference lab</a>
+        </nav>
+        <div class="sidebar-bottom"><span class="local-dot"></span> Local & private<p>Your data stays on this
+                device.<br>No analytics. No external assets.</p><button id="theme" class="theme-button"
+                aria-label="Switch to light theme">☼ <span>Light theme</span></button></div>
+    </aside>
+    <main>
+        <header>
+            <div>
+                <p class="eyebrow">STRIPCHAT / PERSONAL ANALYTICS</p>
+                <h1>Your tokens, in perspective<span>.</span></h1>
+                <p class="subtitle">A little clarity behind every transaction.</p>
+            </div>
+            <div class="header-actions"><button id="privacy" aria-pressed="false">◎ Hide names</button><button
+                    id="refresh" class="primary">↻ Pull new data</button></div>
+        </header>
+        <div class="save-line"><span class="local-dot"></span><span id="saved">Loading saved history…</span><span
+                class="save-hint">Page reloads never fetch new payments.</span></div>
+        <div id="status" role="status" aria-live="polite"></div>
+        <form id="filters" class="filters"><span class="filter-title">Explore your history</span><label>From<input
+                    id="from" type="date"></label><label>To<input id="to" type="date"></label><label>View<select
+                    id="mode">
+                    <option value="all">All activity</option>
+                    <option value="vr">VR only</option>
+                    <option value="nonvr">Non-VR only</option>
+                </select></label><button type="button" id="reset">Reset filters</button><span id="scope"
+                class="muted"></span></form>
+        <section id="overview">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">01 / THE BIG PICTURE</p>
+                    <h2>Overview</h2>
+                </div><span class="section-note">Token values · dates in UTC</span>
+            </div>
+            <div id="stats" class="stats"></div>
+            <div class="grid">
+                <article class="card wide">
+                    <div class="card-head">
+                        <div>
+                            <h3>Tokens in. Tokens out.</h3>
+                            <p>Monthly tokens purchased and spent</p>
+                        </div>
+                        <div class="legend"><span class="mint">Purchased</span><span class="violet">Spent</span></div>
+                    </div>
+                    <div id="monthly-chart" class="chart"></div>
+                </article>
+                <article class="card">
+                    <h3>The spending mix</h3>
+                    <p>VR and non-VR share of tokens</p>
+                    <div id="vr-chart"></div>
+                </article>
+                <article class="card full">
+                    <h3>The bigger timeline</h3>
+                    <p>Cumulative purchases and spending across the selected period</p>
+                    <div id="cumulative-chart" class="chart"></div>
+                </article>
+            </div>
+            <details class="card detail-card">
+                <summary>VR versus non-VR <span>Totals, transaction counts, shares, and averages</span></summary>
+                <div id="vr-table" class="table-wrap"></div>
+            </details>
+            <details class="card detail-card">
+                <summary>Monthly breakdown <span>All the numbers behind the chart</span></summary>
+                <div id="monthly-table" class="table-wrap"></div>
+            </details>
+        </section>
+        <section id="purchases">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">02 / TOPPING UP</p>
+                    <h2>Purchases & token flow</h2>
+                </div>
+            </div>
+            <div id="purchase-stats" class="mini-stats"></div>
+            <div class="grid two">
+                <article class="card">
+                    <h3>Every top-up</h3>
+                    <p>Purchase size over time</p>
+                    <div id="purchase-chart" class="chart"></div>
+                </article>
+                <article class="card">
+                    <h3>Where tokens moved</h3>
+                    <p>Incoming and outgoing amounts, by transaction type</p>
+                    <div id="flow-chart"></div>
+                </article>
+                <article class="card">
+                    <h3>Net movement</h3>
+                    <p>Running sum of signed tokens · not your account balance</p>
+                    <div id="net-chart" class="chart"></div>
+                </article>
+                <article class="card">
+                    <h3>Favorite top-up sizes</h3>
+                    <p>Number of purchases by token package</p>
+                    <div id="package-chart"></div>
+                </article>
+            </div>
+            <p id="history-range" class="footnote"></p>
+            <p class="footnote">Purchase amounts are not reliable currency totals in this export. No euro or dollar cost
+                is inferred from token counts. Adjustments remain separate from purchases and spending.</p>
+            <details class="card detail-card">
+                <summary>API totals from the last pull <span>Unfiltered reference values</span></summary>
+                <div id="api-totals"></div>
+            </details>
+        </section>
+        <section id="spending">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">03 / THE DETAILS</p>
+                    <h2>Spending patterns</h2>
+                </div>
+            </div>
+            <div class="grid two">
+                <article class="card">
+                    <h3>What you spent on</h3>
+                    <p>Tokens by transaction type</p>
+                    <div id="type-chart"></div>
+                </article>
+                <article class="card">
+                    <h3>Small tips, big moments</h3>
+                    <p>Distribution of spending transaction sizes</p>
+                    <div id="distribution-chart" class="chart"></div>
+                </article>
+                <article class="card">
+                    <h3>Daily rhythm</h3>
+                    <p>Tokens spent each day · includes inactive days</p>
+                    <div id="daily-chart" class="chart"></div>
+                </article>
+                <article class="card">
+                    <h3>Month over month</h3>
+                    <p>Change in spending · first month and zero baselines excluded</p>
+                    <div id="change-chart" class="chart"></div>
+                </article>
+                <article class="card">
+                    <h3>Transaction sources</h3>
+                    <p>Spending grouped by the source provided in the export</p>
+                    <div id="source-chart"></div>
+                </article>
+                <article class="card">
+                    <h3>Largest transactions</h3>
+                    <p>Your ten largest spending transactions</p>
+                    <div id="largest-chart"></div>
+                </article>
+            </div>
+            <details class="card detail-card">
+                <summary>Transaction type breakdown <span>Tokens and transaction counts</span></summary>
+                <div id="type-table" class="table-wrap"></div>
+            </details>
+        </section>
+        <section id="activity">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">04 / WHEN IT HAPPENS</p>
+                    <h2>Activity</h2>
+                </div><span class="section-note">All times UTC</span>
+            </div>
+            <div class="grid two">
+                <article class="card full">
+                    <h3>A year in little squares</h3>
+                    <p>Daily token spending · latest 365 days within the selected history</p>
+                    <div id="calendar-chart" class="heat-scroll"></div>
+                </article>
+                <article class="card">
+                    <h3>Days of the week</h3>
+                    <p>Total tokens spent by weekday</p>
+                    <div id="weekday-chart" class="chart"></div>
+                </article>
+                <article class="card">
+                    <h3>After hours</h3>
+                    <p>Total tokens spent by hour of day</p>
+                    <div id="hour-chart" class="chart"></div>
+                </article>
+                <article class="card full">
+                    <h3>Your activity fingerprint</h3>
+                    <p>Weekday × hour · stronger color means more spending</p>
+                    <div id="heatmap-chart" class="heat-scroll"></div>
+                </article>
+            </div>
+            <details class="card detail-card">
+                <summary>Activity breakdown <span>Weekday and hour totals, counts, and averages</span></summary>
+                <div class="grid two">
+                    <div id="weekday-table" class="table-wrap"></div>
+                    <div id="hour-table" class="table-wrap"></div>
+                </div>
+            </details>
+        </section>
+        <section id="people">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">05 / THE PEOPLE</p>
+                    <h2>Recipients</h2>
+                </div>
+            </div>
+            <div class="grid two">
+                <article class="card">
+                    <h3>Most tokens received</h3>
+                    <p>Top ten recipients · VR and non-VR combined</p>
+                    <div id="people-chart"></div>
+                </article>
+                <article class="card">
+                    <h3>Most frequent recipients</h3>
+                    <p>Top ten by number of transactions</p>
+                    <div id="frequency-chart"></div>
+                </article>
+                <article class="card full">
+                    <h3>All recipients</h3>
+                    <p>Spending, frequency, active days, and VR share</p>
+                    <div id="people-table" class="table-wrap"></div>
+                </article>
+            </div>
+        </section>
+        <section id="transactions">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">06 / THE FULL LEDGER</p>
+                    <h2>Transactions</h2>
+                </div><button id="export">↓ Export filtered CSV</button>
+            </div>
+            <article class="card">
+                <div class="table-controls"><label class="search-label">Search<input id="search" type="search"
+                            placeholder="Recipient, type, or transaction ID…"></label><label>Category<select
+                            id="category">
+                            <option value="all">All transactions</option>
+                            <option value="purchase">Purchases</option>
+                            <option value="spending">Spending</option>
+                            <option value="adjustment">Other / adjustments</option>
+                        </select></label><label>Sort<select id="sort">
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="largest">Largest token amount</option>
+                        </select></label></div>
+                <div id="transaction-table" class="table-wrap"></div>
+                <div class="pagination"><span id="page-info"></span>
+                    <div><button id="prev" aria-label="Previous page">← Previous</button><button id="next"
+                            aria-label="Next page">Next →</button></div>
+                </div>
+            </article>
+        </section>
+        <section id="reference">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">07 / REFERENCE LAB</p>
+                    <h2>A different perspective</h2>
+                </div><span class="badge">STATIC REFERENCE</span>
+            </div>
+            <p class="section-description">Your original package comparison and XP plots, rebuilt for the browser. These
+                saved reference values are independent of your history and may not reflect current offers or rules.</p>
+            <div class="grid two">
+                <article class="card full">
+                    <div class="card-head">
+                        <div>
+                            <h3>Tokens for your euro</h3>
+                            <p>Original package values by payment method · hover a point for details</p>
+                        </div><label>Payment method<select id="payment-method">
+                                <option value="all">All methods</option>
+                            </select></label>
+                    </div>
+                    <div id="value-chart" class="chart"></div>
+                    <div id="value-legend" class="legend wrap"></div>
+                    <details>
+                        <summary>Package comparison table</summary>
+                        <div id="value-table" class="table-wrap"></div>
+                    </details>
+                </article>
+                <article class="card">
+                    <h3>The climb to level 100</h3>
+                    <p>Cumulative XP required for each level</p>
+                    <div id="xp-chart" class="chart"></div>
+                </article>
+                <article class="card">
+                    <h3>One level at a time</h3>
+                    <p>Additional XP needed to reach the next level</p>
+                    <div id="xp-step-chart" class="chart"></div>
+                </article>
+                <article class="card full xp-explorer">
+                    <div>
+                        <h3>Explore a level</h3>
+                        <p>Reference thresholds only; this does not estimate your account XP.</p>
+                    </div><label>Level <output id="level-value">50</output><input id="level" type="range" min="1"
+                            max="100" value="50"></label>
+                    <div id="level-stats"></div>
+                </article>
+            </div>
+        </section>
+        <footer><span class="brand small">◈ ledger.</span><span>Built for your own perspective. Everything stays
+                local.</span><a href="#overview">Back to top ↑</a></footer>
+    </main>
+    <div id="tooltip" role="tooltip" hidden></div>
+</body>
+
+</html>

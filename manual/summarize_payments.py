@@ -7,7 +7,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-INPUT_FILE = Path("payments.json")
+INPUT_FILE = Path(__file__).resolve().parents[1] / "payments.json"
 ANONYMIZE = False
 EXCLUDED_NAMES = {
     "Paymentico",
@@ -412,6 +412,11 @@ def print_report(records: list[dict[str, Any]]) -> None:
 
 def main() -> int:
     try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from fetcher import output_path
+
+        global INPUT_FILE
+        INPUT_FILE = output_path()
         user_id = os.getenv("STRIPCHAT_USER_ID")
         transactions = load_transactions()
         records = prepare_records(transactions, user_id)

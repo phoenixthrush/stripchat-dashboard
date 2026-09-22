@@ -1,4 +1,2 @@
-requests
-python-dotenv
-matplotlib
-numpy
+requests>=2.31,<3
+python-dotenv>=1,<2
