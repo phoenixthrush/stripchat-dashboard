@@ -117,6 +117,7 @@ a {
     background: var(--bg);
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
     z-index: 5
 }
 
@@ -1468,4 +1469,278 @@ footer {
 
 .xp-explorer {
     margin: 24px 0
+}
+
+/* Exploration and monthly recap */
+.date-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: -8px 0 30px;
+}
+
+.date-presets button {
+    font-size: 12px;
+    padding: 7px 12px;
+}
+
+.date-presets .muted {
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+.comparison {
+    margin-bottom: 18px;
+}
+
+.comparison>p {
+    margin: 0 0 14px;
+    font-size: 13px;
+}
+
+.comparison-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+.comparison-metrics span, .comparison-metrics small {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.comparison-metrics strong {
+    display: block;
+    font-size: 22px;
+    margin: 5px 0;
+    font-weight: 550;
+}
+
+.comparison .footnote {
+    margin: 16px 0 0;
+}
+
+.wrapped-card {
+    background: radial-gradient(ellipse at top right, color-mix(in srgb, var(--violet) 17%, transparent), transparent 65%), var(--panel);
+    padding: 32px;
+    border-color: color-mix(in srgb, var(--mint) 40%, var(--border));
+}
+
+.wrapped-heading, .wrapped-footer {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.wrapped-heading h2 {
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -1px;
+}
+
+.wrapped-heading p {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.wrapped-heading .eyebrow {
+    color: var(--accent);
+}
+
+.wrapped-total {
+    font-size: clamp(40px, 7vw, 76px);
+    letter-spacing: -2px;
+    line-height: 1.1;
+    margin: 30px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.wrapped-total>span:last-child {
+    display: block;
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: 0;
+    margin-top: 12px;
+}
+
+.wrapped-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 28px 20px;
+    padding: 24px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.wrapped-grid small, .wrapped-grid div>span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.wrapped-grid strong {
+    display: block;
+    font-size: 23px;
+    font-weight: 550;
+    margin: 8px 0;
+    overflow-wrap: anywhere;
+}
+
+.wrapped-grid strong .recipient-button {
+    font-size: inherit;
+    white-space: normal;
+    text-align: left;
+}
+
+.wrapped-footer {
+    align-items: center;
+    margin-top: 24px;
+}
+
+.wrapped-footer>span {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.recipient-button {
+    color: var(--accent);
+    background: transparent;
+    border: 0;
+    padding: 0;
+    border-radius: 3px;
+    font-size: inherit;
+    text-align: left;
+}
+
+.recipient-button:hover {
+    background: transparent;
+    text-decoration: underline;
+}
+
+.trend-card {
+    margin-top: 18px;
+}
+
+.drill-scope {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    background: var(--panel2);
+    border-radius: 8px;
+    margin-bottom: 18px;
+    font-size: 13px;
+}
+
+.drill-scope[hidden] {
+    display: none;
+}
+
+.concentration-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+svg [data-drill] {
+    cursor: pointer;
+}
+
+svg [data-drill]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+dialog {
+    width: min(960px, calc(100% - 32px));
+    max-height: 90vh;
+    overflow: auto;
+    padding: 28px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--panel);
+    color: var(--text);
+}
+
+dialog::backdrop {
+    background: #0009;
+    backdrop-filter: blur(4px);
+}
+
+dialog .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 24px;
+}
+
+dialog>p {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* Keep supporting copy readable alongside the chart values. */
+.card>p, .card-head p, .xp-explorer p, .stat-note, .stat-label, .mini small, summary span, .pagination, .bar-label, .legend, .section-note, .footnote {
+    font-size: 12px;
+}
+
+table {
+    font-size: 12px;
+}
+
+th {
+    font-size: 11px;
+}
+
+.chart svg text {
+    font-size: 11px;
+}
+
+@media (max-width: 700px) {
+    .wrapped-card {
+        padding: 22px;
+    }
+
+    .wrapped-grid, .comparison-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .wrapped-heading, .wrapped-footer {
+        flex-direction: column;
+    }
+
+    .wrapped-footer button {
+        white-space: normal;
+        text-align: left;
+    }
+
+    .drill-scope {
+        align-items: start;
+        flex-direction: column;
+    }
+
+}
+
+@media (max-width: 420px) {
+    .wrapped-grid, .comparison-metrics, dialog .stats {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+@media (max-width: 540px) {
+    #wrapped .section-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #wrapped .section-head label {
+        flex-direction: row;
+        justify-content: space-between;
+    }
 }

@@ -13,7 +13,7 @@ pip install -r requirements.txt
 python server.py
 ```
 
-Open **http://127.0.0.1:8080**. Use `python server.py --port 9000` to choose another port. The server is intentionally bound to localhost; it is not a public multi-user service.
+The server automatically opens **http://127.0.0.1:8080** in your default browser. Use `python server.py --port 9000` to choose another port; the browser opens that port instead. The server is intentionally bound to localhost; it is not a public multi-user service.
 
 Keep your existing `.env` in the repository root, or copy `.env.example` and configure:
 
@@ -78,6 +78,48 @@ The frontend talks to the local Python server, not directly to Stripchat. Python
 - Responsive light/dark themes, clickable recipient profiles, chart hover values, and a **Hide names** control that also anonymizes CSV exports. Profile links are removed while names are hidden. This is a presentation feature; data is still present in the local browser.
 
 The date inputs default to the first and last transaction dates in the saved history (UTC), and Reset restores that range. Refresh extends these defaults when they have not been customized. The date and VR filters affect all transaction-based views. Transaction search/category/sort controls affect only the transaction table and CSV. Reference plots and last-pull API totals are explicitly unfiltered. All transaction dates, grouping and activity charts use **UTC**; the saved-file timestamp uses your browser's local timezone.
+
+## Monthly Wrapped and exploration
+
+Monthly Wrapped recaps each month in the saved history: tokens spent, top recipient,
+busiest spending day, active days, purchases, VR share, and spending change from the
+previous month. Choose a month in the sidebar's **Monthly Wrapped** section. It uses
+the whole month independently of the date inputs, while respecting the VR filter and
+Hide names. Current months compare the elapsed UTC days with the same days of the
+previous month, capped at that month's end; completed months compare full months.
+Periods outside the saved transaction range are flagged because missing days may be
+inactive or unrecorded. No missing activity is inferred.
+
+Date presets select the last 30 calendar days (including today), this month, this
+year, or all saved history. Calendar presets use today's UTC date. The overview
+compares the selected interval with the immediately preceding interval of equal
+length, using the same VR filter. Monthly chart labels mark partial/current months
+with an asterisk, and month-over-month percentages exclude partial months.
+
+Click monthly bars, purchase bars, daily spending points, calendar squares, or
+recipient timeline columns to inspect matching transactions. The table shows an
+explicit chart selection that can be cleared; search, category, sorting and CSV
+export continue to work within that selection. Wrapped drill-downs first switch the
+date range to the chosen month. Recipient names in rankings and tables open a detail
+panel with a timeline, first/latest transaction in the selection, average amount,
+active days and VR share, plus a link to their matching transactions.
+
+Recipient insights include a stacked monthly area chart for the top five recipients
+and Other, plus ranked spending bars and a cumulative percentage line. Concentration
+shows up to fifteen recipients individually and groups the remainder as Other; all
+recipients still contribute to the total. The rolling trend includes inactive days
+and uses the preceding six days from saved history for a full trailing seven-day
+average at the start of the selected range. Missing history contributes zero.
+
+Hide names is remembered in local browser storage, including for Wrapped, recipient
+charts, details and exports. It remains a presentation feature, not data removal.
+
+Run the focused frontend checks with Node.js:
+
+```sh
+node --check web/app.js
+node --test tests/dashboard.test.cjs
+```
 
 ## Interpreting the data
 

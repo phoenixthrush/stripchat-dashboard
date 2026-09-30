@@ -6,6 +6,7 @@ import math
 import secrets
 import sys
 import threading
+import webbrowser
 
 if sys.version_info < (3, 11):  # noqa: UP036 — explain unsupported Python when run directly
     raise SystemExit("Stripchat Dashboard requires Python 3.11 or newer.")
@@ -240,10 +241,10 @@ def main():
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(
-        f"Dashboard: http://127.0.0.1:{server.server_port}\nSaved data only until you click Pull new data."
-    )
+    url = f"http://127.0.0.1:{server.server_port}"
+    print(f"Dashboard: {url}\nSaved data only until you click Pull new data.")
     try:
+        threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
         server.serve_forever()
     except KeyboardInterrupt:
         pass
