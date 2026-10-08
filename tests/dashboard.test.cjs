@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const source = readFileSync(path.join(__dirname, '../web/app.js'), 'utf8');
+const historyStats = require('../web/analytics.js');
 function dashboard(rows = [], savedPrivacy = false) {
     const elements = new Map();
     function element(id) {
@@ -32,7 +33,7 @@ function dashboard(rows = [], savedPrivacy = false) {
     const context = vm.createContext({
         document: { getElementById: element, documentElement: { dataset: {} } },
         localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
-        matchMedia: () => ({ matches: false }), console, rows
+        matchMedia: () => ({ matches: false }), console, rows, historyStats, window: { levelPlanner: { load() { } } }
     });
     vm.runInContext(source.slice(0, source.indexOf("$('refresh').onclick")), context);
     const run = code => vm.runInContext(code, context);
@@ -41,7 +42,7 @@ function dashboard(rows = [], savedPrivacy = false) {
     return { run, element, storage };
 }
 function row(date, tokens, username = 'Alice', vr = false, purchase = false) {
-    return { date: date + 'T12:00:00Z', tokens, username, vr, purchase, spending: !purchase, estimated_eur: Math.abs(tokens) / 10, id: date, type: purchase ? 'purchase' : 'tip', eur_per_token: .1 };
+    return { date: date + 'T12:00:00Z', tokens, username, vr, purchase, spending: !purchase, estimated_eur: Math.abs(tokens) / 10, id: date, type: purchase ? 'purchase' : 'tip', eur_per_token: .1, matched_cost_tokens: Math.abs(tokens), fallback_cost_tokens: 0, matched_estimated_eur: Math.abs(tokens) / 10, fallback_estimated_eur: 0, source: 'Unspecified', cost_basis: 'Test reference price' };
 }
 
 test('UTC month boundaries include leap years and year rollover', () => {
@@ -115,4 +116,61 @@ test('concentration keeps the remaining recipients in Other and reaches 100 perc
     run('spending = rows; renderConcentration(rows.map(r => ({username: r.username, value: 10})));');
     assert.match(element('concentration-chart').innerHTML, /Other: 30 tokens · cumulative 100%/);
     assert.match(element('concentration-note').textContent, /16.7%/);
+});
+
+test('complete report handles empty data and a purchase-only selection without invalid numbers', () => {
+    for (const rows of [[], [row('2024-03-01', 100, 'Topup', false, true)]]) {
+        const { run, element } = dashboard(rows);
+        element('from').value = rows.length ? '2024-03-01' : '';
+        element('to').value = rows.length ? '2024-03-03' : '';
+        run('render()');
+        for (const id of ['report-highlights', 'typical-stats', 'typical-table', 'burst-stats', 'topup-rhythm', 'activity-stats']) {
+            assert.doesNotMatch(element(id).innerHTML, /NaN|Infinity|undefined/);
+        }
+        assert.match(element('burst-stats').innerHTML, /Recorded spending bursts/);
+        if (rows.length) assert.match(element('lifecycle-table').innerHTML, /Not reached/);
+    }
+});
+
+test('the expanded report and recipient details preserve privacy across names and tooltips', () => {
+    const { run, element } = dashboard([row('2024-01-01', -10, 'Alice'), row('2024-02-01', -30, 'Alice'), row('2024-02-02', -20, 'Bob')], true);
+    element('from').value = '2024-02-01'; element('to').value = '2024-02-02';
+    run("render(); selectedRecipient = 'Alice'; renderRecipient();");
+    for (const id of ['recipient-changes', 'recipient-history-table', 'recipient-timeline', 'recipient-return-chart', 'recipient-actions', 'wrapped-card', 'burst-table']) {
+        assert.doesNotMatch(element(id).innerHTML, /Alice|Bob|stripchat\.com/);
+    }
+    assert.match(element('recipient-history-detail').innerHTML, /2024-01-01/);
+    assert.match(element('recipient-history-table').innerHTML, /Returning/);
+});
+
+test('new recipient classification uses earlier history outside the date and VR selection', () => {
+    const { run, element } = dashboard([row('2024-01-01', -10, 'Alice'), row('2024-02-01', -30, 'Alice', true), row('2024-02-02', -20, 'Bob', true)]);
+    element('from').value = '2024-02-01'; element('to').value = '2024-02-02'; element('mode').value = 'vr';
+    run('render()');
+    assert.match(element('recipient-history-table').innerHTML, /Alice<\/button><\/td><td>2024-01-01/);
+    assert.match(element('recipient-history-table').innerHTML, /Returning/);
+    assert.match(element('recipient-history-table').innerHTML, /First seen here/);
+    assert.match(element('burst-table').innerHTML, /2024-02-01/);
+    assert.doesNotMatch(element('burst-table').innerHTML, /2024-01-01/);
+});
+
+test('a decreased recipient with no current payments drills into the previous interval', () => {
+    const { run, element } = dashboard([row('2024-03-01', -70, 'Alice'), row('2024-03-03', -20, 'Bob')]);
+    element('from').value = '2024-03-03'; element('to').value = '2024-03-04';
+    run('render();');
+    run("activateDrill(drillActions.find(a => a.label === 'Alice' && a.range));");
+    assert.equal(element('from').value, '2024-03-01');
+    assert.equal(element('to').value, '2024-03-02');
+    assert.equal(run('tableRows.length'), 1);
+    assert.equal(run('tableRows[0].username'), 'Alice');
+});
+
+test('loading replacement JSON clears transaction selections that reference old records', async () => {
+    const { run, element } = dashboard([row('2024-03-01', -10), row('2024-03-02', -20)]);
+    element('from').value = '2024-03-01'; element('to').value = '2024-03-02';
+    run("render(); const selected = new Set([rows[0]]); openTransactions({label: 'First day', matches: r => selected.has(r)});");
+    assert.equal(run('tableRows.length'), 1);
+    await run("api = async () => ({transactions: rows.map(r => ({...r})), exists: false}); loadData();");
+    assert.equal(element('drill-scope').hidden, true);
+    assert.equal(run('tableRows.length'), 2);
 });

@@ -58,6 +58,9 @@ def normalize_export(data):
             skipped += 1
             continue
         extra = r.get("extra") if isinstance(r.get("extra"), dict) else {}
+        source = extra.get("source")
+        if isinstance(source, dict):
+            source = source.get("name") or source.get("type")
         is_spending = (
             str(r["id"]) in spending_ids
             if r.get("id") is not None
@@ -77,11 +80,11 @@ def normalize_export(data):
                 "vr": is_vr_transaction(r),
                 "spending": is_spending,
                 "purchase": r.get("type") == "purchase" and tokens > 0,
-                "source": str(extra.get("source") or "Unspecified"),
+                "source": str(source or "Unspecified"),
                 "anonymous": r.get("isAnonymous") is True,
             }
         )
-    rows.sort(key=lambda r: r["date"])
+    rows.sort(key=lambda r: datetime.fromisoformat(r["date"]))
     with (WEB / "reference.json").open(encoding="utf-8") as stream:
         pricing = estimate_costs(rows, json.load(stream))
     return {
@@ -205,6 +208,7 @@ class Handler(BaseHTTPRequestHandler):
         files = {
             "/": ("index.html", "text/html; charset=utf-8"),
             "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+            "/analytics.js": ("analytics.js", "text/javascript; charset=utf-8"),
             "/planner.js": ("planner.js", "text/javascript; charset=utf-8"),
             "/style.css": ("style.css", "text/css; charset=utf-8"),
             "/reference.json": ("reference.json", "application/json"),

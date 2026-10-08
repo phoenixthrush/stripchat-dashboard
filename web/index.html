@@ -10,6 +10,7 @@
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/style.css">
     <script src="/planner.js" defer></script>
+    <script src="/analytics.js" defer></script>
     <script src="/app.js" defer></script>
 </head>
 
@@ -20,9 +21,11 @@
         <p class="eyebrow sidebar-label">YOUR TOKEN STORY</p>
         <nav aria-label="Dashboard sections">
             <a href="#overview" class="active"><span>◫</span> Overview</a>
+            <a href="#changes"><span>↕</span> What changed</a>
             <a href="#wrapped"><span>✦</span> Monthly Wrapped</a>
             <a href="#purchases"><span>↗</span> Purchases</a>
             <a href="#spending"><span>◷</span> Spending</a>
+            <a href="#bursts"><span>⌁</span> Spending bursts</a>
             <a href="#activity"><span>▦</span> Activity</a>
             <a href="#people"><span>♧</span> Recipients</a>
             <a href="#recipient-insights"><span>⌁</span> Recipient insights</a>
@@ -31,15 +34,15 @@
             <a href="#level-planner"><span>↟</span> Level planner</a>
         </nav>
         <div class="sidebar-bottom"><span class="local-dot"></span> Local & private<p>Your data stays on this
-                device.<br>No analytics. No external assets.</p><button id="theme" class="theme-button"
+                device.<br>No tracking. No external assets.</p><button id="theme" class="theme-button"
                 aria-label="Switch to light theme">☼ <span>Light theme</span></button></div>
     </aside>
     <main>
         <header>
             <div>
                 <p class="eyebrow">STRIPCHAT / PERSONAL ANALYTICS</p>
-                <h1>Your tokens, in perspective<span>.</span></h1>
-                <p class="subtitle">A little clarity behind every transaction.</p>
+                <h1>Your history, understood<span>.</span></h1>
+                <p class="subtitle">The patterns, people and purchases behind your tokens.</p>
             </div>
             <div class="header-actions"><button id="privacy" aria-pressed="false">◎ Hide names</button><button
                     id="refresh" class="primary">↻ Pull new data</button></div>
@@ -53,20 +56,22 @@
                     <option value="all">All activity</option>
                     <option value="vr">VR only</option>
                     <option value="nonvr">Non-VR only</option>
-                </select></label><button type="button" id="reset">Reset filters</button><span id="scope"
+                </select></label><label>Time<select id="timezone" aria-label="Report timezone"><option value="utc">UTC</option><option value="local">Local time</option></select></label><button type="button" id="reset">Reset filters</button><span id="scope"
                 class="muted"></span></form>
         <div class="date-presets" aria-label="Date presets">
             <button type="button" data-preset="30">Last 30 days</button><button type="button" data-preset="month">This month</button><button type="button" data-preset="year">This year</button><button type="button" data-preset="all">All time</button>
-            <span class="muted">Calendar presets use today in UTC.</span>
+            <span class="muted" id="timezone-note">Calendar presets use today in UTC.</span>
         </div>
         <section id="overview">
             <div class="section-head">
                 <div>
                     <p class="eyebrow">01 / THE BIG PICTURE</p>
                     <h2>Overview</h2>
-                </div><span class="section-note">Tokens · hover amounts for estimated EUR · dates in UTC</span>
+                </div><span class="section-note">Tokens · hover amounts for estimated EUR</span>
             </div>
             <div id="stats" class="stats"></div>
+            <div id="report-highlights" class="report-highlights"></div>
+            <p id="report-coverage" class="footnote"></p>
             <div id="period-comparison" class="card comparison" aria-live="polite"></div>
             <article class="card reconciliation">
                 <div class="card-head">
@@ -112,6 +117,15 @@
                 <summary>Monthly breakdown <span>All the numbers behind the chart</span></summary>
                 <div id="monthly-table" class="table-wrap"></div>
             </details>
+        </section>
+        <section id="changes">
+            <div class="section-head"><div><p class="eyebrow">THE REASONS BEHIND THE NUMBERS</p><h2>What changed</h2></div><span class="section-note">Compared with the preceding interval of equal length</span></div>
+            <div id="change-factors" class="stats factor-stats"></div>
+            <p id="change-note" class="footnote"></p>
+            <div class="grid two">
+                <article class="card"><h3>Recipients behind the change</h3><p>Largest increases and decreases in recorded token spending</p><div id="recipient-changes" class="change-list"></div></article>
+                <article class="card"><h3>Activities behind the change</h3><p>Which transaction types changed most</p><div id="type-changes" class="change-list"></div></article>
+            </div>
         </section>
         <details class="card detail-card euro-summary" id="euro-summary">
             <summary>Euro summary <span>Optional package-based estimates</span></summary>
@@ -159,6 +173,8 @@
                 </div>
             </div>
             <div id="purchase-stats" class="mini-stats"></div>
+            <div id="topup-rhythm" class="stats"></div>
+            <article class="card lifecycle-card"><h3>How your top-ups were used</h3><p>Purchases made in the selected view, followed through the full saved history. Oldest credits are consumed first, across both VR and non-VR.</p><div id="lifecycle-table" class="table-wrap"></div><p id="lifecycle-note" class="footnote"></p></article>
             <div class="grid two">
                 <article class="card">
                     <h3>Every top-up</h3>
@@ -197,6 +213,12 @@
                     <h2>Spending patterns</h2>
                 </div>
             </div>
+            <div id="typical-stats" class="stats"></div>
+            <div class="grid two report-details">
+                <article class="card"><h3>Ordinary days and exceptional ones</h3><p>Median amounts resist the effect of a few large transactions. The middle 50% runs from the 25th to the 75th percentile.</p><div id="typical-table" class="table-wrap"></div></article>
+                <article class="card"><h3>How much the big moments matter</h3><p>Share of spending from your busiest days and largest transactions</p><div id="spike-stats" class="insight-pairs"></div><div id="busiest-days" class="change-list"></div></article>
+                <article class="card full"><h3>Your spending mix over time</h3><p>Each month totals 100% of its recorded spending. Empty months have no spending mix.</p><div id="type-mix" class="mix-chart"></div><div id="type-mix-legend" class="legend wrap"></div><details><summary>All months and transaction types</summary><div id="type-mix-table" class="table-wrap"></div></details></article>
+            </div>
             <div class="grid two">
                 <article class="card">
                     <h3>What you spent on</h3>
@@ -210,7 +232,7 @@
                 </article>
                 <article class="card">
                     <h3>Daily rhythm</h3>
-                    <p>Tokens spent each day · includes inactive days</p>
+                    <p>Tokens spent each day · includes days without recorded spending</p>
                     <div id="daily-chart" class="chart"></div>
                 </article>
                 <article class="card">
@@ -229,19 +251,31 @@
                     <div id="largest-chart"></div>
                 </article>
             </div>
-            <article class="card trend-card"><h3>The pace of your spending</h3><p>Daily tokens and a trailing seven-day average, including inactive days. Click a day to explore.</p><div id="rolling-chart" class="chart"></div><div class="legend"><span>Daily tokens</span><span class="violet">Seven-day average</span></div></article>
+            <article class="card trend-card"><h3>The pace of your spending</h3><p>Daily tokens and a trailing seven-day average, including days without recorded spending. Click a day to explore.</p><div id="rolling-chart" class="chart"></div><div class="legend"><span>Daily tokens</span><span class="violet">Seven-day average</span></div></article>
             <details class="card detail-card">
                 <summary>Transaction type breakdown <span>Tokens and transaction counts</span></summary>
                 <div id="type-table" class="table-wrap"></div>
             </details>
+        </section>
+        <section id="bursts">
+            <div class="section-head"><div><p class="eyebrow">WHEN SMALL PAYMENTS ADD UP</p><h2>Spending bursts</h2></div><span class="badge">INFERRED FROM PAYMENTS</span></div>
+            <p class="section-description">Nearby spending transactions form a burst; a gap greater than 30 minutes starts another. Boundaries use all saved spending before filters. These are payment patterns, not viewing sessions or watch time.</p>
+            <div id="burst-stats" class="stats"></div>
+            <article class="card"><h3>Your largest spending bursts</h3><p>Up to ten bursts, ranked by tokens in this selection. Click a burst to inspect its payments.</p><div id="burst-table" class="table-wrap"></div></article>
         </section>
         <section id="activity">
             <div class="section-head">
                 <div>
                     <p class="eyebrow">04 / WHEN IT HAPPENS</p>
                     <h2>Activity</h2>
-                </div><span class="section-note">All times UTC</span>
+                </div><span id="activity-zone" class="section-note">All times UTC</span>
             </div>
+            <div id="activity-stats" class="stats report-details"></div>
+            <div class="grid two report-details">
+                <article class="card"><h3>A fair weekday comparison</h3><p>Average tokens per calendar occurrence of each weekday, including days without recorded spending</p><div id="normalized-weekday-chart" class="chart"></div></article>
+                <article class="card"><h3>How often each weekday is active</h3><p>Percentage of each weekday with at least one spending transaction</p><div id="active-weekday-chart" class="chart"></div></article>
+            </div>
+            <details class="card detail-card"><summary>Normalized weekdays <span>Occurrences, active days, averages and medians</span></summary><div id="normalized-weekday-table" class="table-wrap"></div></details>
             <div class="grid two">
                 <article class="card full">
                     <h3>A year in little squares</h3>
@@ -299,8 +333,15 @@
         </section>
         <section id="recipient-insights">
             <div class="section-head"><div><p class="eyebrow">HOW YOUR HISTORY CHANGES</p><h2>Recipient insights</h2></div></div>
+            <div id="recipient-history-stats" class="stats"></div>
+            <div class="grid two report-details">
+                <article class="card"><h3>New and familiar recipients</h3><p>New means their first recorded spending day in the full history falls in this interval, across both VR and non-VR.</p><div id="recipient-new-mix" class="insight-pairs"></div></article>
+                <article class="card"><h3>One day or a recurring pattern</h3><p>Repeated payments on one day count as one spending day. Recurrence describes this selection.</p><div id="recipient-repeat-mix" class="insight-pairs"></div></article>
+                <article class="card full"><h3>New and returning, month by month</h3><p>Recorded tokens by recipient history · partial months are marked in the table</p><div id="recipient-return-chart" class="chart"></div><div class="legend"><span>First seen</span><span class="violet">Returning</span></div><details><summary>Monthly recipient counts and spending</summary><div id="recipient-monthly-table" class="table-wrap"></div></details></article>
+                <article class="card full"><h3>Recipient history in detail</h3><p>First recorded day across the full history; active days, months and gaps within this selection. Names identify recipients as recorded in the export.</p><div id="recipient-history-table" class="table-wrap"></div></article>
+            </div>
             <div class="grid two">
-                <article class="card full"><h3>Who you spent time with</h3><p>Monthly spending for your top five recipients, with everyone else grouped as Other. Click a month to explore.</p><div id="recipient-timeline" class="chart"></div><div id="recipient-legend" class="legend wrap"></div></article>
+                <article class="card full"><h3>Who received your tokens over time</h3><p>Monthly spending for your top five recipients, with everyone else grouped as Other. Click a month to explore.</p><div id="recipient-timeline" class="chart"></div><div id="recipient-legend" class="legend wrap"></div></article>
                 <article class="card full"><h3>Your spending concentration</h3><p>Recipients ranked by tokens, with a cumulative share line. Click a recipient for their details.</p><div id="concentration-chart" class="chart"></div><p id="concentration-note"></p></article>
             </div>
         </section>
@@ -458,7 +499,7 @@
                 local.</span><a href="#overview">Back to top ↑</a></footer>
         <dialog id="recipient-dialog" aria-labelledby="recipient-title">
             <div class="card-head"><div><p class="eyebrow">RECIPIENT DETAILS</p><h2 id="recipient-title"></h2></div><button id="close-recipient" type="button" aria-label="Close recipient details">✕</button></div>
-            <p id="recipient-range"></p><div id="recipient-stats" class="stats"></div><div id="recipient-detail-chart" class="chart"></div><p id="recipient-dates"></p><div id="recipient-actions" class="header-actions"></div>
+            <p id="recipient-range"></p><div id="recipient-stats" class="stats"></div><div id="recipient-history-detail" class="insight-pairs"></div><div id="recipient-detail-chart" class="chart"></div><p id="recipient-dates"></p><div id="recipient-actions" class="header-actions"></div>
         </dialog>
     </main>
     <div id="tooltip" role="tooltip" hidden></div>

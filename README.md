@@ -62,36 +62,58 @@ The frontend talks to the local Python server, not directly to Stripchat. Python
 | `pricing.py` | Package matching, fallback rates and chronological FIFO allocation |
 | `web/reference.json` | Static token-package prices and XP thresholds |
 | `web/app.js` | Filters, totals, charts, euro tooltips and CSV export |
+| `web/analytics.js` | Transaction-only statistics, recipient history, bursts and FIFO token lifetimes |
 | `web/planner.js` | Account level settings, XP targets, bonuses and future package planning |
 | `web/index.html`, `web/style.css` | Page structure, styling and themes |
 | `manual/` | Preserved terminal summary and plotting tools |
 
 ## Views
 
-- Overview: totals, averages, monthly purchases/spending, cumulative curves, VR split, full monthly table.
-- Purchases: individual top-ups, token-package frequency, incoming/outgoing flow, cumulative net movement and API-reported totals.
-- Spending: types, transaction-size distribution, daily spending, monthly change, sources and largest transactions.
-- Activity: daily calendar, weekdays, UTC hours and weekday/hour heatmap.
-- Recipients: rankings by tokens and frequency, complete recipient statistics.
+- Overview: totals, four readable report highlights, monthly purchases/spending, cumulative curves, VR split, full monthly table.
+- What changed: active days, transactions per active day, transaction size, and recipient/type contributions compared with the preceding interval of equal length.
+- Purchases: top-up intervals, FIFO half-used/completed lifetimes, remaining recorded tokens per purchase, package frequency and token flow.
+- Spending: medians, the middle 50% of amounts, spending concentrated in big days/transactions, monthly transaction-type shares, distributions and daily trends.
+- Spending bursts: groups of nearby payments, typical tokens and transactions per burst, largest bursts and their matching transactions.
+- Activity: daily calendar, active/quiet runs, normalized weekday averages and activity rates, hours and weekday/hour heatmap.
+- Recipients: rankings, new/returning spending, recurrence across days and months, full-history first recorded dates and gaps between active days.
 - Transactions: search, category and date filters, sorting, pagination and filtered CSV export.
 - Reference lab: the original seven payment-method package tables, tokens-per-euro comparison, cumulative XP, XP increments and a level explorer.
 - Responsive light/dark themes, clickable recipient profiles, chart hover values, and a **Hide names** control that also anonymizes CSV exports. Profile links are removed while names are hidden. This is a presentation feature; data is still present in the local browser.
 
-The date inputs default to the first and last transaction dates in the saved history (UTC), and Reset restores that range. Refresh extends these defaults when they have not been customized. The date and VR filters affect all transaction-based views. Transaction search/category/sort controls affect only the transaction table and CSV. Reference plots and last-pull API totals are explicitly unfiltered. All transaction dates, grouping and activity charts use **UTC**; the saved-file timestamp uses your browser's local timezone.
+The date inputs default to the first and last transaction dates in the saved history, and Reset restores that range. Refresh extends these defaults when they have not been customized. The date and VR filters affect all transaction-based views. Transaction search/category/sort controls affect only the transaction table and CSV. Reference plots and last-pull API totals are explicitly unfiltered. **Time** switches calendar grouping, date filters, presets, activity hours and displayed transaction timestamps between UTC and your browser's local timezone, including daylight saving changes. This choice is remembered locally. CSV retains the original UTC timestamps; the saved-file timestamp uses your browser's local timezone.
+
+## Reading the expanded report
+
+All new statistics are derived from the saved transaction JSON. They do not require
+viewing history, account information or another service.
+
+- **Typical amounts:** medians and 25th/75th percentiles use linear interpolation between sorted amounts. Active-day statistics include only days with spending. Calendar statistics and active/quiet runs use selected days within the first and last saved transaction dates, capped at today; days without recorded spending contribute zero. Dates outside that span are excluded. A saved span does not prove that the export is complete, and quiet days do not establish whether you visited the site.
+- **Big moments:** the busiest three spending days and the largest 10% of spending transactions show their shares of selected spending. Transaction counts round upward. Both shares and the busiest-day list open the matching payments.
+- **Spending changes:** total spending equals active days × transactions per active day × tokens per transaction. When both intervals contain spending, each factor's contribution is averaged over all six substitution orders, sharing interactions without privileging one order. Contributions sum to the recorded token difference before display rounding. These are arithmetic explanations, not causal claims. Missing coverage is flagged. Recipient/type lists show the eight largest absolute changes; a recipient or type with only previous-period spending opens that earlier interval.
+- **Recipient history:** first recorded spending dates use the full history across both VR and non-VR, even when filters hide earlier payments. New/returning status is relative to the selected interval or each displayed month. Active days, active months and median gaps between distinct spending days describe the selection. Recipients are identified by their recorded names, so renames cannot be resolved from this export alone.
+- **Spending mix:** monthly bars show each transaction type's share of that month's spending, with the latest twelve months plotted and all selected months in the table. Empty months have no mix; partial/current months are marked. Segments open matching payments.
+- **Bursts:** gaps greater than 30 minutes between consecutive spending records start a new group. Groups are built from full saved spending before date/VR filtering, so hidden intermediate payments do not split a burst. Values count only selected payments; filtered fragments are marked. The span between payment timestamps is not viewing duration or watch time.
+- **Top-up lifetimes:** every positive credit enters the token FIFO, and every debit consumes it, across full history and both viewing modes. Purchase rows distinguish ordinary spending, other debits and unconsumed tokens. Half-used/full-use milestones include refunds and other debits. Milestone medians include only purchases that reached the milestone; unfinished purchases remain open and are never treated as zero-day lifetimes. Top-up gaps include the preceding purchase even when it is outside the date selection. Missing earlier credits are reported. These allocations are not a live balance or a prediction.
+- **Fair weekdays:** token averages divide by the number of calendar occurrences of each weekday, including occurrences without spending. Activity rates divide active occurrences by all occurrences. A weekday absent from the observed range has no average or percentage.
+
+Names remain hidden in new report cards, comparisons, recipient details, chart
+tooltips and exports when **Hide names** is enabled. Structured transaction sources
+use their recorded name (or type) instead of displaying a raw dictionary.
 
 ## Monthly Wrapped and exploration
 
 Monthly Wrapped recaps each month in the saved history: tokens spent, top recipient,
-busiest spending day, active days, purchases, VR share, and spending change from the
-previous month. Choose a month in the sidebar's **Monthly Wrapped** section. It uses
+busiest spending day, active days, purchases, VR share, spending change, typical
+transaction/day amounts, new/returning recipients, big-day concentration and spending
+bursts. Choose a month in the sidebar's **Monthly Wrapped** section. It uses
 the whole month independently of the date inputs, while respecting the VR filter and
-Hide names. Current months compare the elapsed UTC days with the same days of the
+Hide names. Current months compare the elapsed calendar days in the selected timezone with the same days of the
 previous month, capped at that month's end; completed months compare full months.
-Periods outside the saved transaction range are flagged because missing days may be
+Comparisons and month boundaries use the selected timezone. Periods outside the saved transaction range are flagged because missing days may be
 inactive or unrecorded. No missing activity is inferred.
 
 Date presets select the last 30 calendar days (including today), this month, this
-year, or all saved history. Calendar presets use today's UTC date. The overview
+year, or all saved history. Calendar presets use today's date in the selected timezone. The overview
 compares the selected interval with the immediately preceding interval of equal
 length, using the same VR filter. Monthly chart labels mark partial/current months
 with an asterisk, and month-over-month percentages exclude partial months.
@@ -118,7 +140,8 @@ Run the focused frontend checks with Node.js:
 
 ```sh
 node --check web/app.js
-node --test tests/dashboard.test.cjs
+node --check web/analytics.js
+node --test tests/*.test.cjs
 ```
 
 ## Interpreting the data
@@ -171,7 +194,7 @@ Changing `web/reference.json` and reloading recalculates historical estimates. P
 | Tokens spent | Sum of the absolute token amounts of spending records |
 | Tokens purchased | Sum of positive purchase tokens |
 | Average transaction | Tokens spent / number of spending records |
-| Average active day | Tokens spent / UTC days containing at least one spending record; inactive days are excluded from the divisor |
+| Average active day | Tokens spent / calendar days in the selected timezone containing at least one spending record; inactive days are excluded from the divisor |
 | VR or recipient share | That group's spending tokens / total spending tokens × 100 |
 | Monthly change | `(current month tokens − previous month tokens) / previous month tokens × 100`; omitted when there is no nonzero previous baseline |
 | Cumulative purchased/spent | Running totals starting at the selected range's beginning |
@@ -179,11 +202,11 @@ Changing `web/reference.json` and reloading recalculates historical estimates. P
 | Euro summary / grouped hover | Sum of the already allocated euro costs of the corresponding records |
 | Euro hover on an average | Corresponding euro total / the same divisor used for the token average |
 
-Zero-count averages display zero. Spending totals show positive magnitudes; the transaction table and CSV preserve debit/credit signs for both tokens and euros. The net-movement hover also uses signed costs. Display rounding happens after aggregation, so adding individually rounded tooltip values may differ by a cent from the rounded total. CSV euro amounts retain up to six decimal places and rates up to eight.
+Existing summary averages display zero when their count is zero. New distribution and weekday statistics display a dash when there are no samples, keeping missing samples distinct from measured zero spending. Spending totals show positive magnitudes; the transaction table and CSV preserve debit/credit signs for both tokens and euros. The net-movement hover also uses signed costs. Display rounding happens after aggregation, so adding individually rounded tooltip values may differ by a cent from the rounded total. CSV euro amounts retain up to six decimal places and rates up to eight.
 
 Daily and cumulative charts include inactive dates as zero activity. The calendar only displays the latest 365 days of the selected interval; summary totals still cover the full selected interval. Histogram bars count transactions in token-size ranges, and the top-up-size chart counts purchases rather than summing tokens. Their count values are not token amounts.
 
-Date boundaries are inclusive UTC calendar dates. Initial inputs use the earliest/latest saved transaction, not today or the configured fetch boundaries. Reset restores the saved-history range. After a pull, each boundary still at its previous default follows the new default; a customized boundary stays as entered. Clearing a date restores its default. VR filtering applies to purchases as well as spending, so a VR-only view may omit top-ups that were not marked VR.
+Date boundaries are inclusive calendar dates in the selected timezone. Initial inputs use the earliest/latest saved transaction, not today or the configured fetch boundaries. Reset restores the saved-history range. After a pull, each boundary still at its previous default follows the new default; a customized boundary stays as entered. Clearing a date restores its default. VR filtering applies to purchases as well as spending, so a VR-only view may omit top-ups that were not marked VR.
 
 API `inUsd` / `outUsd` fields remain unverified, unfiltered reference values and are not used in euro estimates. Taxes, fees, promotions, historic price changes and payment-method differences can make actual charges differ.
 

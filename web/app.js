@@ -6,7 +6,12 @@ const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const sum = (rows, fn = r => Math.abs(r.tokens)) => rows.reduce((a, r) => a + fn(r), 0);
 const colors = ['var(--mint)', 'var(--violet)', '#d5a777', '#8baec7', '#cd91ab', '#a4b77b', '#c5bca3'];
 const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const day = r => r.date.slice(0, 10), month = r => r.date.slice(0, 7);
+let reportTime = 'utc';
+try { reportTime = localStorage.getItem('stripchat-dashboard-time') === 'local' ? 'local' : 'utc'; } catch { }
+const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const timeZone = () => reportTime === 'local' ? localZone : 'UTC';
+const timeLabel = () => reportTime === 'local' ? localZone : 'UTC';
+const day = r => historyStats.dateKey(r.date, timeZone()), month = r => day(r).slice(0, 7);
 const dateLabel = d => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const friendly = s => String(s).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
 let data = { transactions: [] }, reference = {}, filtered = [], spending = [], purchases = [], tableRows = [], page = 0, hiddenNames = false, aliases = new Map(), refreshToken = '', polling = false;
@@ -81,7 +86,7 @@ function rangeDays(start, end) { const a = []; if (!start || !end) return a; let
 function monthRange(start, end) { const a = []; if (!start || !end) return a; let d = new Date(start.slice(0, 7) + '-01T00:00:00Z'), last = end.slice(0, 7); for (let i = 0; i < 1200 && d.toISOString().slice(0, 7) <= last; i++, d.setUTCMonth(d.getUTCMonth() + 1))a.push(d.toISOString().slice(0, 7)); return a; }
 function shortMonth(s) { return new Date(s + '-01T00:00:00Z').toLocaleDateString('en', { month: 'short', year: '2-digit', timeZone: 'UTC' }); }
 function monthIsPartial(m) { const [start, end] = selectedBounds(); return start > m + '-01' || end < monthEnd(m) || monthEnd(m) >= isoDay(new Date()); }
-function selectedBounds() { return [$('from').value || (filtered[0]?.date.slice(0, 10)), $('to').value || filtered.at(-1)?.date.slice(0, 10)]; }
+function selectedBounds() { return [$('from').value || (filtered[0] && day(filtered[0])), $('to').value || (filtered.at(-1) && day(filtered.at(-1)))]; }
 function renderReconciliation() {
     const adjustments = filtered.filter(r => !r.spending && !r.purchase);
     const adjustmentTokens = sum(adjustments, r => r.tokens);
@@ -100,13 +105,14 @@ function renderReconciliation() {
 }
 // Chart selections filter the transaction table without changing the overview range.
 let drillActions = [], transactionDrill = null, selectedRecipient = null;
-const isoDay = date => date.toISOString().slice(0, 10);
-function shiftDay(value, offset) { const date = new Date(value + 'T00:00:00Z'); date.setUTCDate(date.getUTCDate() + offset); return isoDay(date); }
-function monthEnd(value) { const date = new Date(value + '-01T00:00:00Z'); date.setUTCMonth(date.getUTCMonth() + 1); date.setUTCDate(0); return isoDay(date); }
+const isoDay = date => historyStats.dateKey(date.toISOString(), timeZone());
+function shiftDay(value, offset) { const date = new Date(value + 'T00:00:00Z'); date.setUTCDate(date.getUTCDate() + offset); return date.toISOString().slice(0, 10); }
+function monthEnd(value) { const date = new Date(value + '-01T00:00:00Z'); date.setUTCMonth(date.getUTCMonth() + 1); date.setUTCDate(0); return date.toISOString().slice(0, 10); }
 function modeMatches(row) { return $('mode').value === 'all' || row.vr === ($('mode').value === 'vr'); }
 function historyBetween(start, end) { return data.transactions.filter(r => day(r) >= start && day(r) <= end && modeMatches(r)); }
 function delta(current, previous) { return previous ? `${current >= previous ? '+' : ''}${fmt((current - previous) / previous * 100, 1)}%` : current ? 'No previous baseline' : 'No change'; }
 function coverageNote(start, end) {
+    if (!start || !end) return '';
     const today = isoDay(new Date()), notes = [];
     if (end >= today) notes.push('Current period is still in progress');
     if (!defaultDates.from || start < defaultDates.from || end > defaultDates.to) notes.push('Period extends beyond the saved transaction range; missing days may be inactive or unrecorded');
@@ -153,6 +159,9 @@ function renderWrapped() {
     const priorSpent = historyBetween(priorMonth + '-01', priorEnd).filter(r => r.spending);
     const top = grouped(spent, r => r.username)[0], busiest = grouped(spent, day)[0], active = new Set(spent.map(day)).size;
     const vr = sum(spent.filter(r => r.vr)), total = sum(spent), mode = $('mode').selectedOptions[0].textContent;
+    const summary = historyStats.summarize(spent, observedDays(rangeDays(m + '-01', end)), day);
+    const recipients = historyStats.recipientHistory(data.transactions, spent, m + '-01', day);
+    const fresh = recipients.filter(p => p.new).length, bursts = historyStats.bursts(data.transactions, spent);
     $('wrapped-card').innerHTML = `<div class="wrapped-heading"><div><p class="eyebrow">✦ YOUR MONTHLY WRAPPED</p><h2>${esc(select.selectedOptions[0].textContent)}</h2><p>${esc(mode)} · ${fmt(spent.length)} spending transactions · ${fmt(new Set(spent.map(r => r.username)).size)} recipients</p></div><span class="badge">${m === today.slice(0, 7) ? 'MONTH SO FAR' : 'SAVED HISTORY'}</span></div>
         <div class="wrapped-total">${tokenValue(total, cost(spent))}<span>tokens spent</span></div>
         <div class="wrapped-grid"><div><small>Your top recipient</small><strong>${top ? recipientButton(top[0], '', m) : 'No spending yet'}</strong><span>${top ? `${fmt(top[1])} tokens · ${fmt(top[1] / total * 100, 1)}% of spending` : 'This month is quiet.'}</span></div>
@@ -160,7 +169,13 @@ function renderWrapped() {
         <div><small>Days you were active</small><strong>${fmt(active)}</strong><span>${fmt(active ? total / active : 0, 1)} tokens per active day</span></div>
         <div><small>Tokens purchased</small><strong>${tokenValue(sum(bought), cost(bought))}</strong><span>${fmt(bought.length)} top-ups</span></div>
         <div><small>VR share</small><strong>${fmt(total ? vr / total * 100 : 0, 1)}%</strong><span>Of tokens spent in this view</span></div>
-        <div><small>Change from previous month</small><strong>${esc(delta(total, sum(priorSpent)))}</strong><span>Compared with ${esc(priorMonth)}-01 – ${esc(priorEnd)}${m === today.slice(0, 7) ? ' · same elapsed days, capped at month end' : ''}</span></div></div>
+        <div><small>Change from previous month</small><strong>${esc(delta(total, sum(priorSpent)))}</strong><span>Compared with ${esc(priorMonth)}-01 – ${esc(priorEnd)}${m === today.slice(0, 7) ? ' · same elapsed days, capped at month end' : ''}</span></div>
+        <div><small>Typical transaction</small><strong>${numberOrDash(summary.medianTransaction)}</strong><span>Median tokens per spending transaction</span></div>
+        <div><small>Typical active day</small><strong>${numberOrDash(summary.medianActiveDay)}</strong><span>Median tokens on days with spending</span></div>
+        <div><small>First seen this month</small><strong>${fmt(fresh)}</strong><span>Recipients first recorded in your full saved history</span></div>
+        <div><small>Returning recipients</small><strong>${fmt(recipients.length - fresh)}</strong><span>First recorded before this month</span></div>
+        <div><small>Your biggest days</small><strong>${percent(summary.topDaysShare)}</strong><span>Of spending on the ${summary.topDays.length} busiest days</span></div>
+        <div><small>Spending bursts</small><strong>${fmt(bursts.length)}</strong><span>Grouped payments, separated by gaps greater than 30 minutes</span></div></div>
         <p class="footnote">${esc([coverageNote(m + '-01', end), coverageNote(priorMonth + '-01', priorEnd)].filter(Boolean).join('. '))}</p>
         <div class="wrapped-footer"><span>YOUR TOKEN STORY · LOCAL & PRIVATE</span><button type="button" ${drillAttributes({ ...monthDrill(m), wrapped: m })}>Explore this month’s transactions →</button></div>`;
 }
@@ -228,6 +243,8 @@ function renderRecipient() {
     chart('recipient-detail-chart', days, [{ name: name(selectedRecipient), values: days.map(d => daily.get(d) || 0), euros: days.map(d => euros.get(d) || 0) }]);
     $('recipient-dates').textContent = rows.length ? `First transaction in this selection: ${dateLabel(rows[0].date)} · Latest: ${dateLabel(rows.at(-1).date)}` : 'No spending for this recipient in the current selection.';
     $('recipient-actions').innerHTML = `<button type="button" id="recipient-transactions">View transactions →</button>${hiddenNames ? '' : profileLink(selectedRecipient, ' ↗')}`;
+    const history = historyStats.recipientHistory(data.transactions, rows, selectedBounds()[0], day)[0];
+    $('recipient-history-detail').innerHTML = history ? insightPair('First recorded in full history', esc(history.first), 'Across both VR and non-VR') + insightPair('Months active in this selection', fmt(history.months)) + insightPair('Median gap between active days', history.medianGap === null ? '—' : `${fmt(history.medianGap, 1)} days`) + insightPair('Median transaction', `${numberOrDash(historyStats.quantile(rows.map(amount), .5))} tokens`) : '';
     $('recipient-transactions').onclick = () => { const username = selectedRecipient; $('recipient-dialog').close(); openTransactions({ label: `Spending for ${name(username)}`, matches: r => r.spending && r.username === username }); };
 }
 function openRecipient(username) { selectedRecipient = username; if (!$('recipient-dialog').open) $('recipient-dialog').showModal(); renderRecipient(); }
@@ -235,7 +252,118 @@ function activateDrill(action) {
     if (!action) return;
     if (action.recipient) { openRecipient(action.recipient); return; }
     if (action.wrapped) { $('from').value = action.wrapped + '-01'; $('to').value = monthEnd(action.wrapped); clearDrill(); render(); }
+    if (action.range) { $('from').value = action.range[0]; $('to').value = action.range[1]; clearDrill(); render(); }
     openTransactions(action);
+}
+
+const numberOrDash = value => value === null || value === undefined ? '—' : fmt(value, 1);
+const percent = value => value === null || value === undefined ? '—' : `${fmt(value, 1)}%`;
+const daysText = value => value === null || value === undefined ? 'Not reached' : value < 1 ? `${fmt(value * 24, 1)} hours` : `${fmt(value, 1)} days`;
+function metricCard(label, value, note) {
+    return `<div class="stat"><div class="stat-label">${esc(label)}</div><div class="stat-number">${esc(value)}</div><div class="stat-note">${esc(note)}</div></div>`;
+}
+function insightPair(label, value, note = '') {
+    return `<div><span>${esc(label)}</span><strong>${value}</strong><small>${esc(note)}</small></div>`;
+}
+function selectionButton(label, rows, extra = {}) {
+    const selected = new Set(rows);
+    return `<button type="button" class="recipient-button" ${drillAttributes({ label, matches: r => selected.has(r), ...extra })}>${esc(label)}</button>`;
+}
+function observedDays(days) {
+    const today = isoDay(new Date());
+    return days.filter(d => d >= defaultDates.from && d <= defaultDates.to && d <= today);
+}
+function renderChangeList(id, entries, current, previous, previousRange, people = false) {
+    const changed = entries.filter(e => e.change !== 0).slice(0, 8), max = Math.max(1, ...changed.map(e => Math.abs(e.change)));
+    if (!changed.length) return empty(id, 'No recorded spending change between these periods.');
+    $(id).innerHTML = changed.map(e => {
+        const label = people ? name(e.label) : friendly(e.label), key = people ? 'username' : 'type';
+        const matching = (e.current ? current : previous).filter(r => r[key] === e.label);
+        const control = selectionButton(label, matching, e.current ? {} : { range: previousRange });
+        return `<div class="change-item"><div>${control}<small>${fmt(e.previous)} → ${fmt(e.current)} tokens</small></div><strong class="${e.change > 0 ? 'positive' : 'negative'}">${e.change > 0 ? '+' : ''}${fmt(e.change)}</strong><div class="track"><div class="bar-fill" style="width:${Math.abs(e.change) / max * 100}%;background:var(--${e.change > 0 ? 'mint' : 'violet'})"></div></div></div>`;
+    }).join('');
+}
+function renderChanges(start, end) {
+    if (!start || !end) {
+        $('change-factors').innerHTML = ''; $('change-note').textContent = 'Load saved history to explain spending changes.';
+        empty('recipient-changes'); empty('type-changes'); return;
+    }
+    const length = rangeDays(start, end).length, previousRange = [shiftDay(start, -length), shiftDay(start, -1)];
+    const previous = historyBetween(...previousRange).filter(r => r.spending), comparison = historyStats.compare(spending, previous, day);
+    $('change-factors').innerHTML = comparison.factors.map(f => metricCard(f.label, numberOrDash(f.current), `${numberOrDash(f.previous)} previously · ${delta(f.current, f.previous)}`)).join('') +
+        metricCard('Total spending change', `${comparison.change > 0 ? '+' : ''}${fmt(comparison.change)}`, 'Tokens versus the preceding period');
+    const contributions = comparison.factors.filter(f => f.effect !== null).map(f => `${f.label.toLowerCase()}: ${f.effect >= 0 ? '+' : ''}${fmt(f.effect, 1)} tokens`).join(' · ');
+    $('change-note').textContent = `${contributions ? `Allocation of the change — ${contributions}. Interactions are shared by averaging all substitution orders; this explains the arithmetic, not causes.` : 'A nonzero spending baseline in both periods is needed to allocate the change between activity and transaction size.'} ${[coverageNote(start, end), coverageNote(...previousRange)].filter(Boolean).join('. ')}`;
+    renderChangeList('recipient-changes', comparison.recipients, spending, previous, previousRange, true);
+    renderChangeList('type-changes', comparison.types, spending, previous, previousRange);
+}
+function renderTypeMix(months) {
+    const types = grouped(spending, r => r.type).map(([type]) => type);
+    if (!types.length) { empty('type-mix'); $('type-mix-legend').innerHTML = ''; table('type-mix-table', ['Month', 'Tokens'], []); return; }
+    const mix = months.map(m => {
+        const rows = spending.filter(r => month(r) === m), total = sum(rows);
+        return { month: m, total, rows, parts: types.map(type => { const selected = rows.filter(r => r.type === type); return { type, rows: selected, total: sum(selected), share: total ? sum(selected) / total * 100 : 0 }; }) };
+    });
+    $('type-mix').innerHTML = mix.slice(-12).map(m => `<div class="mix-row"><span>${esc(shortMonth(m.month))}${monthIsPartial(m.month) ? ' *' : ''}</span><div class="mix-track">${m.total ? m.parts.map((p, i) => p.total ? `<button type="button" style="width:${p.share}%;background:${colors[i % colors.length]}" ${drillAttributes({ ...monthDrill(m.month, 'spending'), label: `${m.month} · ${friendly(p.type)}`, matches: r => r.spending && month(r) === m.month && r.type === p.type })} data-tip="${esc(`${friendly(p.type)}: ${fmt(p.total)} tokens · ${percent(p.share)} · ${costTip(cost(p.rows))}`)}"></button>` : '').join('') : '<small>No spending recorded</small>'}</div></div>`).join('') + '<p class="footnote">Latest twelve months in this selection · * partial or current month. Full detail below.</p>';
+    $('type-mix-legend').innerHTML = types.map((type, i) => `<span style="--c:${colors[i % colors.length]}">${esc(friendly(type))}</span>`).join('');
+    table('type-mix-table', ['Month', 'Tokens', ...types.map(friendly)], mix.map(m => [esc(m.month) + (monthIsPartial(m.month) ? ' *' : ''), valueWithCost(m.rows), ...m.parts.map(p => `${percent(m.total ? p.share : null)} · ${valueWithCost(p.rows)}`)]));
+}
+function renderRecipientHistory(start, months) {
+    const people = historyStats.recipientHistory(data.transactions, spending, start, day), fresh = people.filter(p => p.new), returning = people.filter(p => !p.new);
+    const recurring = people.filter(p => p.days > 1), multiMonth = people.filter(p => p.months > 1), total = sum(spending);
+    const groupPair = (label, group) => { const rows = group.flatMap(p => p.rows); return insightPair(label, valueWithCost(rows), `${fmt(group.length)} recipients · ${percent(total ? sum(rows) / total * 100 : null)} of tokens`); };
+    $('recipient-history-stats').innerHTML = metricCard('First seen this period', fmt(fresh.length), 'First recorded spending day in saved history') + metricCard('Returning recipients', fmt(returning.length), 'Recorded spending before this interval') + metricCard('Active on multiple days', fmt(recurring.length), `${percent(people.length ? recurring.length / people.length * 100 : null)} of selected recipients`) + metricCard('Active in multiple months', fmt(multiMonth.length), 'Within this selection');
+    $('recipient-new-mix').innerHTML = groupPair('First seen this period', fresh) + groupPair('Returning recipients', returning);
+    $('recipient-repeat-mix').innerHTML = groupPair('One spending day', people.filter(p => p.days === 1)) + groupPair('Multiple spending days', recurring);
+    table('recipient-history-table', ['Recipient', 'First recorded', 'Latest selected', 'History', 'Tokens', 'Transactions', 'Active days', 'Active months', 'Median day gap', 'Median transaction'], people.map(p => [recipientButton(p.username), esc(p.first), esc(p.latest), p.new ? 'First seen here' : 'Returning', valueWithCost(p.rows), fmt(p.rows.length), fmt(p.days), fmt(p.months), p.medianGap === null ? '—' : `${fmt(p.medianGap, 1)} days`, `${numberOrDash(historyStats.quantile(p.rows.map(amount), .5))} tokens`]));
+    const monthly = months.map(m => {
+        const rows = spending.filter(r => month(r) === m), recipients = historyStats.recipientHistory(data.transactions, rows, m + '-01', day);
+        const newRows = recipients.filter(p => p.new).flatMap(p => p.rows), oldRows = recipients.filter(p => !p.new).flatMap(p => p.rows);
+        return { month: m, recipients, newRows, oldRows };
+    });
+    chart('recipient-return-chart', monthly.map(m => shortMonth(m.month)), [{ name: 'First seen', values: monthly.map(m => sum(m.newRows)), euros: monthly.map(m => cost(m.newRows)) }, { name: 'Returning', values: monthly.map(m => sum(m.oldRows)), euros: monthly.map(m => cost(m.oldRows)) }], { kind: 'bar', drill: monthly.map(m => monthDrill(m.month, 'spending')) });
+    table('recipient-monthly-table', ['Month', 'Recipients', 'First seen', 'Returning', 'First-seen tokens', 'Returning tokens'], monthly.map(m => [esc(m.month) + (monthIsPartial(m.month) ? ' *' : ''), fmt(m.recipients.length), fmt(m.recipients.filter(p => p.new).length), fmt(m.recipients.filter(p => !p.new).length), valueWithCost(m.newRows), valueWithCost(m.oldRows)]));
+}
+function renderBursts() {
+    const bursts = historyStats.bursts(data.transactions, spending), ranked = [...bursts].sort((a, b) => b.total - a.total), total = sum(spending);
+    $('burst-stats').innerHTML = metricCard('Recorded spending bursts', fmt(bursts.length), `${fmt(bursts.filter(b => b.rows.length > 1).length)} contain multiple transactions`) + metricCard('Median tokens per burst', numberOrDash(historyStats.quantile(bursts.map(b => b.total), .5)), 'Typical selected burst spending') + metricCard('Median transactions per burst', numberOrDash(historyStats.quantile(bursts.map(b => b.rows.length), .5)), 'Payments, not minutes watched') + metricCard('Largest burst share', percent(total ? ranked[0].total / total * 100 : null), 'Share of selected spending');
+    table('burst-table', ['First payment', 'Tokens', 'Transactions', 'Recipients', 'Recorded payment span', 'Selection'], ranked.slice(0, 10).map(b => [selectionButton(historyStats.timestamp(b.start, timeZone()), b.rows), valueWithCost(b.rows), fmt(b.rows.length), fmt(b.recipients), b.rows.length === 1 ? 'Single payment' : `${fmt(b.spanMinutes, 1)} minutes`, b.clipped ? 'Part of a larger burst' : 'Whole burst']));
+}
+function renderTopupLifetimes() {
+    const lifecycle = historyStats.purchaseLifecycle(data.transactions), selected = new Set(purchases);
+    const batches = lifecycle.batches.filter(b => selected.has(b.row)), completed = batches.filter(b => b.finished), half = batches.filter(b => b.half);
+    const gaps = lifecycle.batches.flatMap((b, i) => selected.has(b.row) && i ? [historyStats.elapsedDays(lifecycle.batches[i - 1].row.date, b.row.date)] : []);
+    const lifetime = (b, milestone) => b[milestone] ? historyStats.elapsedDays(b.row.date, b[milestone]) : null;
+    const duration = value => value === null ? '—' : daysText(value);
+    $('topup-rhythm').innerHTML = metricCard('Median gap before top-up', duration(historyStats.quantile(gaps, .5)), `${fmt(gaps.length)} intervals · preceding purchase may be outside filters`) + metricCard('Median time to half-used', duration(historyStats.quantile(half.map(b => lifetime(b, 'half')), .5)), `${fmt(half.length)} of ${fmt(batches.length)} top-ups reached this point`) + metricCard('Median completed lifetime', duration(historyStats.quantile(completed.map(b => lifetime(b, 'finished')), .5)), `${fmt(completed.length)} fully consumed in saved history`) + metricCard('Top-ups not fully used', fmt(batches.length - completed.length), `${fmt(sum(batches, b => b.remaining))} tokens unconsumed in recorded FIFO`);
+    const milestone = (b, key) => b[key] ? `<span data-tip="${esc(historyStats.timestamp(b[key], timeZone()) + ' · ' + timeLabel())}">${esc(daysText(lifetime(b, key)))}</span>` : 'Not reached';
+    table('lifecycle-table', ['Purchase', 'Tokens', 'Spent', 'Other debits', 'Unconsumed', 'Half-used after', 'Fully used after'], [...batches].reverse().map(b => [selectionButton(historyStats.timestamp(b.row.date, timeZone()), [b.row]), tokenValue(b.row.tokens, b.row.estimated_eur), fmt(b.spent), fmt(b.other), fmt(b.remaining), milestone(b, 'half'), milestone(b, 'finished')]));
+    $('lifecycle-note').textContent = `All positive credits enter FIFO and all negative movements consume it, including refunds and other debits. Milestone medians include only top-ups that reached that point; unfinished purchases are not zero-day lifetimes. This describes the saved records, not a live balance or a forecast.${lifecycle.uncovered ? ` ${fmt(lifecycle.uncovered)} outgoing tokens had no earlier recorded credit; missing opening inventory can affect these allocations.` : ''}`;
+}
+function renderReport(months, days) {
+    const [start, end] = selectedBounds(), observed = observedDays(days), summary = historyStats.summarize(spending, observed, day);
+    const people = historyStats.recipientHistory(data.transactions, spending, start, day), fresh = people.filter(p => p.new);
+    const observedActive = observed.filter(d => summary.daily.has(d)).length;
+    const highlight = (label, value, note) => `<article><p class="eyebrow">${esc(label)}</p><strong>${esc(value)}</strong><p>${esc(note)}</p></article>`;
+    $('report-highlights').innerHTML = highlight('Typical payment', `${numberOrDash(summary.medianTransaction)} tokens`, `${fmt(summary.count)} spending records · average ${numberOrDash(summary.meanTransaction)}`) + highlight('Your biggest days', percent(summary.topDaysShare), `Of spending happened on your ${summary.topDays.length} busiest days`) + highlight('New faces in your history', fmt(fresh.length), `${fmt(people.length - fresh.length)} returning recipients in this selection`) + highlight('Recorded activity', percent(observed.length ? observedActive / observed.length * 100 : null), `${fmt(observedActive)} active days across ${fmt(observed.length)} observed calendar days`);
+    $('report-coverage').textContent = `Calendar averages and runs use ${fmt(observed.length)} selected days within the first and last saved transaction dates. Days without recorded spending contribute zero; days outside that span are excluded. This does not establish that the export is complete. ${coverageNote(start, end)}`;
+    $('typical-stats').innerHTML = metricCard('Median transaction', numberOrDash(summary.medianTransaction), 'Tokens · the middle spending transaction') + metricCard('Median active day', numberOrDash(summary.medianActiveDay), 'Tokens · only days with recorded spending') + metricCard('Average calendar day', numberOrDash(summary.meanCalendarDay), 'Tokens · includes observed days without spending') + metricCard('Active-day share', percent(observed.length ? observedActive / observed.length * 100 : null), `${fmt(observedActive)} of ${fmt(observed.length)} observed days`);
+    const calendarAmounts = observed.map(d => summary.daily.get(d) || 0);
+    table('typical-table', ['Measure', 'Samples', 'Median tokens', 'Middle 50%', 'Average tokens'], [
+        ['Spending transaction', fmt(summary.count), numberOrDash(summary.medianTransaction), summary.count ? `${numberOrDash(summary.q1Transaction)} – ${numberOrDash(summary.q3Transaction)}` : '—', numberOrDash(summary.meanTransaction)],
+        ['Active spending day', fmt(summary.active), numberOrDash(summary.medianActiveDay), summary.active ? `${numberOrDash(summary.q1ActiveDay)} – ${numberOrDash(summary.q3ActiveDay)}` : '—', summary.active ? fmt(summary.total / summary.active, 1) : '—'],
+        ['Observed calendar day', fmt(observed.length), numberOrDash(summary.medianCalendarDay), observed.length ? `${numberOrDash(historyStats.quantile(calendarAmounts, .25))} – ${numberOrDash(historyStats.quantile(calendarAmounts, .75))}` : '—', numberOrDash(summary.meanCalendarDay)]
+    ]);
+    $('spike-stats').innerHTML = insightPair('Busiest three days', selectionButton(percent(summary.topDaysShare), spending.filter(r => summary.topDays.some(([d]) => day(r) === d)), { label: 'Spending on the busiest three days' }), `${summary.topDays.length} days with recorded spending`) + insightPair('Largest 10% of transactions', selectionButton(percent(summary.topRowsShare), summary.topRows, { label: 'Largest 10% of spending transactions' }), `${summary.topRows.length} of ${summary.count} transactions · rounded up`);
+    $('busiest-days').innerHTML = summary.topDays.map(([d, total]) => `<div class="change-item"><div>${selectionButton(dateLabel(d), spending.filter(r => day(r) === d))}<small>${fmt(spending.filter(r => day(r) === d).length)} transactions</small></div><strong>${fmt(total)} tokens</strong></div>`).join('');
+    const profile = historyStats.weekdayProfile(spending, observed, day);
+    chart('normalized-weekday-chart', weekdays.map(w => w.slice(0, 3)), [{ name: 'Average per calendar occurrence', values: profile.map(p => p.average) }], { kind: 'bar', unit: 'tokens / weekday occurrence' });
+    chart('active-weekday-chart', weekdays.map(w => w.slice(0, 3)), [{ name: 'Days with spending', values: profile.map(p => p.activePercent), color: colors[1] }], { kind: 'bar', unit: '%' });
+    table('normalized-weekday-table', ['Weekday', 'Occurrences', 'Active', 'Active share', 'Avg tokens / occurrence', 'Median active-day tokens'], profile.map((p, i) => [weekdays[i], fmt(p.occurrences), fmt(p.active), percent(p.activePercent), numberOrDash(p.average), numberOrDash(p.medianActive)]));
+    $('activity-stats').innerHTML = metricCard('Observed calendar days', fmt(observed.length), 'Within the selected saved transaction span') + metricCard('Days without recorded spending', fmt(observed.length - observedActive), 'Transactions cannot establish whether you visited') + metricCard('Longest active run', `${summary.activeRun.length} days`, summary.activeRun.start ? `${summary.activeRun.start} – ${summary.activeRun.end}` : 'No recorded spending') + metricCard('Longest quiet run', `${summary.quietRun.length} days`, summary.quietRun.start ? `${summary.quietRun.start} – ${summary.quietRun.end} · bounded by this selection` : 'Every observed day has spending');
+    $('timezone-note').textContent = `Calendar filters and presets use ${timeLabel()}. CSV keeps original UTC timestamps.`;
+    $('activity-zone').textContent = `Times in ${timeLabel()}`;
+    renderChanges(start, end); renderTypeMix(months); renderRecipientHistory(start, months); renderBursts(); renderTopupLifetimes();
 }
 
 function render() {
@@ -260,7 +388,7 @@ function render() {
     let cs = 0, cp = 0, cse = 0, cpe = 0; chart('cumulative-chart', days, [{ name: 'Purchased', values: days.map(d => cp += puday.get(d) || 0), euros: days.map(d => cpe += pde.get(d) || 0) }, { name: 'Spent', values: days.map(d => cs += daily.get(d) || 0), euros: days.map(d => cse += de.get(d) || 0) }]);
     if (totalValue) { const pct = vrValue / totalValue * 100, circ = 2 * Math.PI * 70; $('vr-chart').innerHTML = `<div class="donut-wrap"><svg viewBox="0 0 200 200" role="img" aria-label="VR ${pct.toFixed(1)} percent of ${esc(chartUnit())} spending"><circle cx="100" cy="100" r="70" fill="none" stroke="var(--violet)" stroke-width="19"/><circle cx="100" cy="100" r="70" fill="none" stroke="var(--mint)" stroke-width="19" stroke-dasharray="${circ * pct / 100} ${circ}"/></svg><div class="donut-center">${fmt(pct, 1)}%<span>OF TOKENS SPENT IN VR</span></div></div><div class="donut-legend"><div><span class="local-dot"></span>VR<strong>${tokenValue(vrValue, cost(vrRows), 0, ' tokens')}</strong></div><div>◦ Non-VR<strong>${tokenValue(totalValue - vrValue, spentEuro - cost(vrRows), 0, ' tokens')}</strong></div></div>`; } else empty('vr-chart');
     table('vr-table', ['Mode', 'Tokens', 'Transactions', 'Share of tokens', 'Avg / transaction'], [true, false].map(mode => { const rows = spending.filter(r => r.vr === mode); return [mode ? 'VR' : 'Non-VR', valueWithCost(rows), fmt(rows.length), `${fmt(totalValue ? sum(rows, amount) / totalValue * 100 : 0, 1)}%`, averageTokens(rows, rows.length)]; }));
-    $('history-range').textContent = filtered.length ? `Selected history: ${filtered[0].date.replace('T', ' ').replace('Z', ' UTC')} to ${filtered.at(-1).date.replace('T', ' ').replace('Z', ' UTC')}.` : 'No transactions in the selected period.';
+    $('history-range').textContent = filtered.length ? `Selected history: ${historyStats.timestamp(filtered[0].date, timeZone())} to ${historyStats.timestamp(filtered.at(-1).date, timeZone())} · ${timeLabel()}.` : 'No transactions in the selected period.';
     table('monthly-table', ['Month', 'Purchased', 'Spent', 'VR', 'Non-VR', 'Transactions', 'Recipients', 'Days', 'Avg / txn', 'Avg / day', 'VR share', 'MoM'], months.map((m, i) => { const rows = spending.filter(r => month(r) === m), topups = purchases.filter(r => month(r) === m), vrs = rows.filter(r => r.vr), total = sum(rows, amount), active = new Set(rows.map(day)).size, prev = sp.get(months[i - 1]) || 0; return [esc(m), valueWithCost(topups), valueWithCost(rows), valueWithCost(vrs), valueWithCost(rows.filter(r => !r.vr)), fmt(rows.length), fmt(new Set(rows.map(r => r.username)).size), fmt(active), averageTokens(rows, rows.length), averageTokens(rows, active), `${fmt(total ? sum(vrs, amount) / total * 100 : 0, 1)}%`, monthIsPartial(m) || i > 0 && monthIsPartial(months[i - 1]) ? 'Partial month' : prev ? `${fmt((total - prev) / prev * 100, 1)}%` : '—']; }));
     const largestPurchase = [...purchases].sort((a, b) => b.tokens - a.tokens)[0];
     const adjustments = filtered.filter(r => !r.spending && !r.purchase);
@@ -271,7 +399,7 @@ function render() {
     bars('package-chart', grouped(purchases, r => `${fmt(r.tokens)} tokens`, () => 1), { unit: 'purchases' });
     chart('purchase-rate-chart', purchases.map(day), [{ name: 'Estimated cost per token', values: purchases.map(r => r.eur_per_token) }], { unit: 'EUR / token', showPoints: true });
     bars('cost-basis-chart', [['Package-matched tokens', sum(spending, r => r.matched_estimated_eur)], ['Fallback-priced tokens', sum(spending, r => r.fallback_estimated_eur)]], { unit: 'estimated EUR', color: colors });
-    table('purchase-cost-table', ['Date UTC', 'Tokens', 'Estimated price', 'EUR / token', 'Pricing basis'], purchases.map(r => [esc(day(r)), tokenValue(r.tokens, r.estimated_eur), euro(r.estimated_eur), `€${fmt(r.eur_per_token, 5)}`, esc(r.cost_basis)]));
+    table('purchase-cost-table', [`Date / ${timeLabel()}`, 'Tokens', 'Estimated price', 'EUR / token', 'Pricing basis'], purchases.map(r => [esc(day(r)), tokenValue(r.tokens, r.estimated_eur), euro(r.estimated_eur), `€${fmt(r.eur_per_token, 5)}`, esc(r.cost_basis)]));
     const totals = data.api_totals || {}; $('api-totals').innerHTML = Object.keys(totals).length ? Object.entries(totals).map(([k, v]) => `<div>${esc(k)} <strong>${esc(typeof v === 'number' ? fmt(v, 2) : String(v))}</strong></div>`).join('') + '<p>API-reported values for the full fetched date range. USD fields are not verified billing amounts and are not used for euro estimates.</p>' : 'Not present in the existing export. The next successful pull will preserve these API fields.';
     bars('type-chart', grouped(spending, r => friendly(r.type)), { color: colors, limit: 30 });
     table('type-table', ['Type', 'Tokens', 'Transactions', 'VR', 'Non-VR'], grouped(spending, r => r.type).map(([type]) => { const rows = spending.filter(r => r.type === type); return [esc(friendly(type)), valueWithCost(rows), fmt(rows.length), valueWithCost(rows.filter(r => r.vr)), valueWithCost(rows.filter(r => !r.vr))]; }));
@@ -283,17 +411,18 @@ function render() {
     bars('largest-chart', [...spending].sort((a, b) => amount(b) - amount(a)).slice(0, 10).map(r => [`${name(r.username)} · ${day(r)}`, amount(r), r.username, ` · ${day(r)}`, r.estimated_eur]), { color: colors[1] });
     const weekEuros = new Array(7).fill(0), hourEuros = new Array(24).fill(0), heatEuros = Array.from({ length: 7 }, () => new Array(24).fill(0));
     const weekday = new Array(7).fill(0), hour = new Array(24).fill(0), heat = Array.from({ length: 7 }, () => new Array(24).fill(0));
-    spending.forEach(r => { const d = new Date(r.date), w = (d.getUTCDay() + 6) % 7, h = d.getUTCHours(); weekday[w] += amount(r); hour[h] += amount(r); heat[w][h] += amount(r); weekEuros[w] += r.estimated_eur; hourEuros[h] += r.estimated_eur; heatEuros[w][h] += r.estimated_eur; });
+    spending.forEach(r => { const w = (new Date(day(r) + 'T12:00:00Z').getUTCDay() + 6) % 7, h = Number(historyStats.dateParts(r.date, timeZone()).hour); weekday[w] += amount(r); hour[h] += amount(r); heat[w][h] += amount(r); weekEuros[w] += r.estimated_eur; hourEuros[h] += r.estimated_eur; heatEuros[w][h] += r.estimated_eur; });
     chart('weekday-chart', weekdays.map(s => s.slice(0, 3)), [{ name: 'Spent', values: weekday, euros: weekEuros }], { kind: 'bar' });
     chart('hour-chart', hour.map((_, i) => `${String(i).padStart(2, '0')}:00`), [{ name: 'Spent', values: hour, euros: hourEuros }], { kind: 'bar' });
     renderHeatmap(heat, heatEuros); renderCalendar(daily, days, de);
     const activityRows = (keys, fn) => keys.map((label, i) => { const rows = spending.filter(r => fn(r) === i); return [esc(label), valueWithCost(rows), fmt(rows.length), averageTokens(rows, rows.length)]; });
-    table('weekday-table', ['Weekday', 'Tokens', 'Transactions', 'Avg / txn'], activityRows(weekdays, r => (new Date(r.date).getUTCDay() + 6) % 7));
-    table('hour-table', ['UTC hour', 'Tokens', 'Transactions', 'Avg / txn'], activityRows(hour.map((_, i) => `${String(i).padStart(2, '0')}:00`), r => new Date(r.date).getUTCHours()));
+    table('weekday-table', ['Weekday', 'Tokens', 'Transactions', 'Avg / txn'], activityRows(weekdays, r => (new Date(day(r) + 'T12:00:00Z').getUTCDay() + 6) % 7));
+    table('hour-table', [`Hour / ${timeLabel()}`, 'Tokens', 'Transactions', 'Avg / txn'], activityRows(hour.map((_, i) => `${String(i).padStart(2, '0')}:00`), r => Number(historyStats.dateParts(r.date, timeZone()).hour)));
     const people = [...new Set(spending.map(r => r.username))].map(username => { const rows = spending.filter(r => r.username === username); return { username, rows, value: sum(rows, amount), count: rows.length, days: new Set(rows.map(day)).size }; }).sort((a, b) => b.value - a.value);
     bars('people-chart', people.map(p => [name(p.username), p.value, p.username, '', cost(p.rows)])); bars('frequency-chart', [...people].sort((a, b) => b.count - a.count).map(p => [name(p.username), p.count, p.username, '', cost(p.rows)]), { unit: 'transactions', color: colors[1] });
     table('people-table', ['Recipient', 'Tokens', 'Share', 'VR', 'Non-VR', 'Transactions', 'Active days', 'Avg / txn', 'VR share'], people.map(p => [recipientButton(p.username), valueWithCost(p.rows), `${fmt(totalValue ? p.value / totalValue * 100 : 0, 1)}%`, valueWithCost(p.rows.filter(r => r.vr)), valueWithCost(p.rows.filter(r => !r.vr)), fmt(p.count), fmt(p.days), averageTokens(p.rows, p.count), `${fmt(p.value ? sum(p.rows.filter(r => r.vr), amount) / p.value * 100 : 0, 1)}%`]));
     renderInsights(months, days, daily, de, people);
+    renderReport(months, days);
     renderWrapped();
     if ($('recipient-dialog').open) renderRecipient();
     updateChartDescriptions(); renderTransactions();
@@ -309,19 +438,19 @@ function updateChartDescriptions() {
         'net-chart': `Running net movement · ${unit} · not your account balance`,
         'type-chart': `Spending by transaction type · ${unit}`,
         'distribution-chart': `Transaction counts by token amount`,
-        'daily-chart': `Daily spending, including inactive days · ${unit}`,
+        'daily-chart': `Daily spending, including days without recorded spending · ${unit}`,
         'change-chart': `Monthly change in ${unit} · partial months and zero baselines excluded`,
         'source-chart': `Spending by recorded source · ${unit}`,
         'largest-chart': `Ten largest spending transactions · ${unit}`,
         'calendar-chart': `Daily spending · ${unit} · latest 365 days in the selected interval`,
         'weekday-chart': `Total spending by weekday · ${unit}`,
-        'hour-chart': `Total spending by UTC hour · ${unit}`,
-        'heatmap-chart': `Weekday × UTC hour · ${unit} · stronger color means more spending`,
+        'hour-chart': `Total spending by hour in ${timeLabel()} · ${unit}`,
+        'heatmap-chart': `Weekday × hour in ${timeLabel()} · ${unit} · stronger color means more spending`,
         'people-chart': `Top ten by spending · ${unit}`
     };
     Object.entries(descriptions).forEach(([id, text]) => { $(id).closest('article').querySelector('p').textContent = text; });
 }
-function renderHeatmap(rows, euros) { const max = Math.max(1, ...rows.flat()), cell = 27; let svg = '<svg viewBox="0 0 730 240" role="img" aria-label="Spending heatmap by weekday and UTC hour">'; for (let h = 0; h < 24; h += 2)svg += `<text x="${65 + h * cell}" y="14">${String(h).padStart(2, '0')}</text>`; rows.forEach((row, w) => { svg += `<text x="0" y="${43 + w * cell}">${weekdays[w].slice(0, 3)}</text>`; row.forEach((v, h) => { svg += `<rect x="${62 + h * cell}" y="${27 + w * cell}" width="22" height="22" rx="4" fill="var(--mint)" opacity="${v ? .22 + .78 * Math.sqrt(v / max) : .07}" data-tip="${weekdays[w]} ${String(h).padStart(2, '0')}:00 UTC: ${valueText(v)} · ${esc(costTip(euros[w][h]))}"><title>${valueText(v)} · ${esc(costTip(euros[w][h]))}</title></rect>`; }); }); svg += '</svg>'; $('heatmap-chart').innerHTML = svg; }
+function renderHeatmap(rows, euros) { const max = Math.max(1, ...rows.flat()), cell = 27; let svg = '<svg viewBox="0 0 730 240" role="img" aria-label="Spending heatmap by weekday and hour">'; for (let h = 0; h < 24; h += 2)svg += `<text x="${65 + h * cell}" y="14">${String(h).padStart(2, '0')}</text>`; rows.forEach((row, w) => { svg += `<text x="0" y="${43 + w * cell}">${weekdays[w].slice(0, 3)}</text>`; row.forEach((v, h) => { svg += `<rect x="${62 + h * cell}" y="${27 + w * cell}" width="22" height="22" rx="4" fill="var(--mint)" opacity="${v ? .22 + .78 * Math.sqrt(v / max) : .07}" data-tip="${weekdays[w]} ${String(h).padStart(2, '0')}:00 ${esc(timeLabel())}: ${valueText(v)} · ${esc(costTip(euros[w][h]))}"><title>${valueText(v)} · ${esc(costTip(euros[w][h]))}</title></rect>`; }); }); svg += '</svg>'; $('heatmap-chart').innerHTML = svg; }
 function renderCalendar(daily, allDays, euros) {
     const days = allDays.slice(-365);
     if (!days.length) return empty('calendar-chart');
@@ -351,8 +480,8 @@ function renderTransactions() {
     tableRows = filtered.filter(r => (!transactionDrill || transactionDrill.matches(r)) && (category === 'all' || category === 'purchase' && r.purchase || category === 'spending' && r.spending || category === 'adjustment' && !r.purchase && !r.spending) && `${name(r.username)} ${r.type} ${hiddenNames ? '' : r.id}`.toLowerCase().includes(query));
     tableRows.sort((a, b) => sort === 'largest' ? Math.abs(b.tokens) - Math.abs(a.tokens) : sort === 'oldest' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
     const pages = Math.max(1, Math.ceil(tableRows.length / 25)); page = Math.min(page, pages - 1);
-    table('transaction-table', ['Date / UTC', 'Recipient', 'Type', 'Mode', 'Tokens', 'Category', 'Transaction ID'], tableRows.slice(page * 25, page * 25 + 25).map(r => [
-        esc(r.date.replace('T', ' ').replace('Z', '')), profileLink(r.username), esc(friendly(r.type)), `<span class="badge">${r.vr ? 'VR' : 'NON-VR'}</span>`,
+    table('transaction-table', [`Date / ${timeLabel()}`, 'Recipient', 'Type', 'Mode', 'Tokens', 'Category', 'Transaction ID'], tableRows.slice(page * 25, page * 25 + 25).map(r => [
+        esc(historyStats.timestamp(r.date, timeZone())), profileLink(r.username), esc(friendly(r.type)), `<span class="badge">${r.vr ? 'VR' : 'NON-VR'}</span>`,
         `<span class="${r.tokens >= 0 ? 'positive' : 'negative'}">${r.tokens > 0 ? '+' : ''}${tokenValue(r.tokens, Math.sign(r.tokens) * r.estimated_eur, 0, '', r.cost_basis)}</span>`, r.purchase ? 'Purchase' : r.spending ? 'Spending' : 'Adjustment / other', hiddenNames ? 'Hidden' : esc(r.id)
     ]));
     $('page-info').textContent = `${fmt(tableRows.length)} transactions · Page ${page + 1} of ${pages}`; $('prev').disabled = page === 0; $('next').disabled = page >= pages - 1;
@@ -372,7 +501,8 @@ function resetDates() { $('from').value = defaultDates.from; $('to').value = def
 async function loadData() {
     const previousDefaults = defaultDates;
     data = await api('/api/data');
-    defaultDates = { from: data.transactions[0]?.date.slice(0, 10) || '', to: data.transactions.at(-1)?.date.slice(0, 10) || '' };
+    clearDrill();
+    defaultDates = { from: data.transactions[0] ? day(data.transactions[0]) : '', to: data.transactions.at(-1) ? day(data.transactions.at(-1)) : '' };
     for (const key of ['from', 'to']) if (!$(key).value || $(key).value === previousDefaults[key]) $(key).value = defaultDates[key]; aliases = new Map([...new Set(data.transactions.map(r => r.username))].sort().map((n, i) => [n, `Recipient ${String(i + 1).padStart(2, '0')}`])); $('saved').textContent = data.exists ? `Saved ${new Date(data.saved_at).toLocaleString()} · ${fmt(data.transactions.length)} transactions` : 'No saved history yet. Pull new data to get started.'; render(); window.levelPlanner.load(data, reference); if (data.skipped) message(`${data.skipped} invalid or duplicate records were excluded from the charts.`);
 }
 async function checkStatus() { const s = await api('/api/status'); refreshToken = s.refresh_token; $('refresh').disabled = s.running; $('refresh').textContent = s.running ? '↻ Pulling history…' : '↻ Pull new data'; return s; }
@@ -380,6 +510,15 @@ async function poll() { if (polling) return; polling = true; try { let s = await
 $('refresh').onclick = async () => { try { $('refresh').disabled = true; const s = await checkStatus(); if (!s.running) { $('refresh').disabled = true; await api('/api/refresh', { method: 'POST', headers: { 'X-Refresh-Token': refreshToken } }); } await poll(); } catch (e) { message(e.message, true); $('refresh').disabled = false; } };
 $('theme').onclick = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 updatePrivacyButton();
+$('timezone').value = reportTime;
+$('timezone').onchange = () => {
+    const previous = defaultDates;
+    reportTime = $('timezone').value;
+    try { localStorage.setItem('stripchat-dashboard-time', reportTime); } catch { }
+    defaultDates = { from: data.transactions[0] ? day(data.transactions[0]) : '', to: data.transactions.at(-1) ? day(data.transactions.at(-1)) : '' };
+    for (const key of ['from', 'to']) if ($(key).value === previous[key]) $(key).value = defaultDates[key];
+    clearDrill(); message(''); render();
+};
 $('privacy').onclick = () => { hiddenNames = !hiddenNames; try { localStorage.setItem('stripchat-dashboard-hide-names', String(hiddenNames)); } catch { } clearDrill(); updatePrivacyButton(); $('search').value = ''; $('tooltip').hidden = true; render(); };
 $('filters').onsubmit = e => e.preventDefault();['from', 'to', 'mode'].forEach(id => $(id).onchange = () => { if (id !== 'mode' && !$(id).value) $(id).value = defaultDates[id]; clearDrill(); message(''); render(); });
 $('show-adjustments').onclick = () => { clearDrill(); $('category').value = 'adjustment'; $('search').value = ''; page = 0; renderTransactions(); $('transactions').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); $('category').focus({ preventScroll: true }); };
