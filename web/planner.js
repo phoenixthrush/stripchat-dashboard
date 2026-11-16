@@ -6,8 +6,11 @@ window.levelPlanner = (() => {
     const money = n => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' }).format(n / 100);
     const escape = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const key = 'stripchat-dashboard-level-profile';
+    const maxLevel = 100;
     let xp, config, initialized = false, balanceEdited = false;
     const league = level => config.leagues.find(l => level >= l.min && level <= l.max)?.name || '';
+    const xpToNext = level => xp[level + 1] - xp[level];
+    const validLevelXp = (value, level) => Number.isSafeInteger(value) && value >= 0 && value < xpToNext(level);
     function optimize(needed, requirePurchase = false) {
         needed = Math.max(0, Math.ceil(needed));
         if (!needed && !requirePurchase) return { cents: 0, tokens: 0, counts: new Map() };
@@ -25,24 +28,32 @@ window.levelPlanner = (() => {
         return { cents: fullCount * Math.round(full.price * 100) + dp[best], tokens: fullCount * full.tokens + best, counts };
     }
     function save() {
-        try { localStorage.setItem(key, JSON.stringify({ level: Number(el('current').value) || null, xp: el('xp').value })); } catch { /* Storage may be disabled. */ }
+        const level = Number(el('current').value) || null, input = el('xp');
+        if (input.validity.badInput || (input.value !== '' && !validLevelXp(Number(input.value), level))) return;
+        try { localStorage.setItem(key, JSON.stringify({ level, levelXp: input.value })); } catch { /* Storage may be disabled. */ }
     }
     function compute() {
         const type = el('target-type').value;
         for (const name of ['level', 'league', 'feature']) el(`${name}-wrap`).hidden = type !== name;
         const current = Number(el('current').value);
+        const xpInput = el('xp'), hasNextLevel = current > 0 && current < maxLevel;
+        xpInput.disabled = !hasNextLevel;
+        xpInput.max = hasNextLevel ? String(xpToNext(current) - 1) : '';
+        el('xp-help').textContent = !current ? 'Choose your current level to enter XP progress.'
+            : !hasNextLevel ? 'You’ve reached the highest level.'
+            : `Use the first number from your XP bar. This level takes ${number(xpToNext(current))} XP to complete. Leave blank to start at 0.`;
         el('results').hidden = !current;
         if (!current) { el('account-note').textContent = 'Enter your current level once to save it as your default. The payments export does not contain account XP.'; el('message').textContent = 'Choose your current account level to calculate a plan.'; return; }
         const grey = current < 10;
         for (const name of ['watch-enabled', 'email', 'bronze']) el(name).disabled = !grey;
         el('watch').disabled = !grey || !el('watch-enabled').checked;
-        let currentXp = xp[current];
-        if (el('xp').value !== '') {
-            currentXp = Number(el('xp').value);
-            if (!Number.isSafeInteger(currentXp) || currentXp < xp[current] || (current < 100 && currentXp >= xp[current + 1])) {
-                el('message').textContent = 'Total XP must fall within your selected level’s thresholds. Clear it to use the level minimum.'; el('results').hidden = true; return;
-            }
+        const levelXp = hasNextLevel ? Number(xpInput.value) : 0;
+        if (hasNextLevel && (xpInput.validity.badInput || !validLevelXp(levelXp, current))) {
+            el('message').textContent = `Enter a whole number from 0 to ${number(xpToNext(current) - 1)} XP for level ${current}.`;
+            el('results').hidden = true;
+            return;
         }
+        const currentXp = xp[current] + levelXp;
         const balance = Number(el('balance').value), minutes = Number(el('watch').value);
         if (!Number.isSafeInteger(balance) || balance < 0 || !Number.isSafeInteger(minutes) || minutes < 0) { el('message').textContent = 'Use nonnegative whole numbers for available tokens and watch minutes.'; el('results').hidden = true; return; }
         const target = type === 'level' ? Number(el('target-level').value) : type === 'league' ? config.leagues.find(l => l.name === el('target-league').value).min : config.features.find(f => f.key === el('target-feature').value).level;
@@ -54,10 +65,13 @@ window.levelPlanner = (() => {
         const used = el('use-balance').checked ? Math.min(balance, needed) : 0, buy = Math.max(0, needed - used);
         const plan = optimize(buy, bronze > 0);
         el('results').hidden = false; el('message').textContent = '';
-        el('account-note').textContent = `Your saved starting point: level ${current} · ${league(current)} · ${number(currentXp)} XP${el('xp').value === '' ? ' (level minimum assumed)' : ''}. Update it when your account progresses.`;
+        const levelProgress = hasNextLevel ? ` · ${number(levelXp)} / ${number(xpToNext(current))} XP toward level ${current + 1}${xpInput.value === '' ? ' (assumed)' : ''}` : '';
+        el('account-note').textContent = `Your saved starting point: level ${current} · ${league(current)}${levelProgress}. Update it when your account progresses.`;
         el('path').textContent = `Level ${current} (${league(current)}) → level ${target} (${league(target)})${type === 'feature' ? ' · ' + config.features.find(f => f.key === el('target-feature').value).label : ''}`;
-        const pct = xp[target] ? Math.min(100, currentXp / xp[target] * 100) : 100;
-        el('progress').innerHTML = `<progress max="100" value="${pct}" aria-label="Current XP as a share of target threshold"></progress><p>${number(currentXp)} / ${number(xp[target])} XP · ${pct.toFixed(1)}% of target threshold</p>`;
+        const targetSpan = xp[target] - xp[current];
+        const pct = targetSpan > 0 ? levelXp / targetSpan * 100 : 100;
+        const progress = targetSpan > 0 ? `${number(levelXp)} / ${number(targetSpan)} XP toward level ${target} · ${pct.toFixed(1)}%` : 'Target already reached.';
+        el('progress').innerHTML = `<progress max="100" value="${pct}" aria-label="XP progress from current level to target"></progress><p>${progress}</p>`;
         const stat = (label, value) => `<div class="mini"><small>${escape(label)}</small><strong>${escape(value)}</strong></div>`;
         el('stats').innerHTML = stat('XP to target', number(raw)) + stat('Planned bonus XP', number(bonus)) + stat('Paid XP remaining', number(paid)) + stat('Tokens to spend', number(needed)) + stat('Existing tokens used', number(used)) + stat('Tokens to buy', number(buy)) + stat('Estimated package cost', money(plan.cents)) + stat('Extra purchased tokens', number(plan.tokens - buy));
         const parts = [...plan.counts].sort((a, b) => b[0] - a[0]).map(([tokens, count]) => `${number(count)} × ${number(tokens)} tokens`);
@@ -72,13 +86,26 @@ window.levelPlanner = (() => {
             el('target-league').innerHTML = config.leagues.map(l => `<option value="${escape(l.name)}">${escape(l.name)} · L${l.min}</option>`).join('');
             el('target-feature').innerHTML = config.features.map(f => `<option value="${escape(f.key)}">${escape(f.label)} · L${f.level}</option>`).join('');
             let saved = {}; try { saved = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch { }
-            if (Number.isInteger(saved.level) && saved.level >= 1 && saved.level <= 100) { el('current').value = String(saved.level); el('xp').value = typeof saved.xp === 'string' ? saved.xp : ''; }
-            el('target-level').value = String(Math.min(100, (Number(el('current').value) || 9) + 1)); el('target-league').value = 'Bronze'; el('target-feature').value = 'maskMode';
+            if (Number.isInteger(saved.level) && saved.level >= 1 && saved.level <= maxLevel) {
+                el('current').value = String(saved.level);
+                if (saved.level < maxLevel) {
+                    if (typeof saved.levelXp === 'string') {
+                        el('xp').value = saved.levelXp;
+                    } else if (typeof saved.xp === 'string' && saved.xp.trim() !== '') {
+                        const converted = Number(saved.xp) - xp[saved.level];
+                        if (validLevelXp(converted, saved.level)) {
+                            el('xp').value = String(converted);
+                            save();
+                        }
+                    }
+                }
+            }
+            el('target-level').value = String(Math.min(maxLevel, (Number(el('current').value) || 9) + 1)); el('target-league').value = 'Bronze'; el('target-feature').value = 'maskMode';
             el('bronze').checked = !data.transactions.some(r => r.purchase);
             el('leagues').innerHTML = '<table><thead><tr><th>League</th><th>Levels</th><th>Reference unlocks</th></tr></thead><tbody>' + config.leagues.map(l => `<tr><td>${escape(l.name)}</td><td>${l.min}–${l.max}</td><td>${escape(config.features.filter(f => f.level >= l.min && f.level <= l.max).map(f => f.label).join(', ') || 'Badge / league progression')}</td></tr>`).join('') + '</tbody></table>';
             el('packages').innerHTML = '<table><thead><tr><th>Package tokens</th><th>Reference EUR</th></tr></thead><tbody>' + config.packages.map(p => `<tr><td>${number(p.tokens)}</td><td>${money(Math.round(p.price * 100))}</td></tr>`).join('') + '</tbody></table>';
             for (const name of ['target-type', 'target-level', 'target-league', 'target-feature', 'watch', 'watch-enabled', 'email', 'bronze', 'use-balance']) el(name).addEventListener('input', compute);
-            el('current').addEventListener('change', () => { el('xp').value = ''; el('target-level').value = String(Math.min(100, (Number(el('current').value) || 1) + 1)); save(); compute(); });
+            el('current').addEventListener('change', () => { el('xp').value = ''; el('target-level').value = String(Math.min(maxLevel, (Number(el('current').value) || 1) + 1)); save(); compute(); });
             el('xp').addEventListener('input', () => { save(); compute(); });
             el('balance').addEventListener('input', () => { balanceEdited = true; compute(); });
             initialized = true;

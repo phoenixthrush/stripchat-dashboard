@@ -428,15 +428,15 @@
                     <label>Current level<select id="planner-current">
                             <option value="">Choose your level</option>
                         </select></label>
-                    <label>Total account XP (optional)<input id="planner-xp" type="number" min="0" step="1"
-                            placeholder="Use level threshold"></label>
+                    <label>XP earned this level (optional)<input id="planner-xp" type="number" min="0" step="1"
+                            placeholder="0" aria-describedby="planner-xp-help" disabled></label>
                     <label>Available tokens<input id="planner-balance" type="number" min="0" step="1" value="0"></label>
                     <label class="planner-check"><input id="planner-use-balance" type="checkbox" checked>Use available
                         tokens first</label>
                 </div>
+                <p id="planner-xp-help" class="footnote">Choose your current level to enter XP progress.</p>
                 <p class="footnote">Available tokens start from the full saved history’s net movement, not a live
-                    balance. You can correct the value. Exact XP improves estimates; otherwise the plan starts at your
-                    level’s minimum XP.</p>
+                    balance. You can correct the value.</p>
                 <div class="planner-controls">
                     <label>Target type<select id="planner-target-type">
                             <option value="level">Level</option>

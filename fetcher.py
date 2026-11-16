@@ -13,8 +13,9 @@ from pathlib import Path
 from tempfile import mkstemp
 from typing import Any
 
-import requests
+import niquests
 from dotenv import load_dotenv
+from niquests.exceptions import HTTPError, RequestException
 
 DEFAULT_START_DATE = "2000-01-01T00:00:00Z"
 DEFAULT_PAGE_SIZE = 200  # API maximum page size
@@ -98,8 +99,8 @@ def output_path() -> Path:
     return path if path.is_absolute() else ROOT / path
 
 
-def create_session(cookie: str, user_agent: str) -> requests.Session:
-    session = requests.Session()
+def create_session(cookie: str, user_agent: str) -> niquests.Session:
+    session = niquests.Session()
 
     session.headers.update(
         {
@@ -153,7 +154,7 @@ def fetch_all_transactions(
                     params=params,
                     timeout=REQUEST_TIMEOUT_SECONDS,
                 )
-            except requests.RequestException as error:
+            except RequestException as error:
                 raise RuntimeError("Request failed.") from error
 
             if response.status_code in (401, 403):
@@ -191,7 +192,7 @@ def fetch_all_transactions(
 
             try:
                 response.raise_for_status()
-            except requests.HTTPError as error:
+            except HTTPError as error:
                 raise RuntimeError(
                     f"HTTP request failed with status {response.status_code}."
                 ) from error

@@ -1,2 +1,2 @@
-requests
+niquests
 python-dotenv

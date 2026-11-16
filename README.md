@@ -1,6 +1,6 @@
 # Stripchat Dashboard
 
-A private, local dashboard for your token history. Plain HTML, CSS, JavaScript and SVG; no frontend dependencies, build step, CDN, tracking, or chart library. The Python server uses only `requests` and `python-dotenv` alongside the standard library.
+A private, local dashboard for your token history. Plain HTML, CSS, JavaScript and SVG; no frontend dependencies, build step, CDN, tracking, or chart library. The Python server uses `niquests` and `python-dotenv` alongside the standard library.
 
 ## Run
 
@@ -216,14 +216,15 @@ Package prices and XP thresholds are copied from the original plotting scripts. 
 
 The final section integrates the supplied standalone XP, Token, and Money Calculator into the dashboard theme. It supports target levels, leagues and feature unlocks, watching plans, email and first-purchase bonuses, and a package breakdown with extra purchased tokens.
 
-The payments export has **no current account level or XP**. Choose your current level once; it and optional total account XP are remembered in this browser’s local storage and selected on subsequent visits. These are user-entered settings, not a live account lookup. Update them when you level up or switch accounts. With no saved setting, the planner asks for your level rather than inferring it from spending. The default target is the next level (capped at 100). Without exact XP, the calculation starts at your selected level’s minimum threshold. Exact XP must fall within that level’s range.
+The payments export has **no current account level or XP**. Choose your current level and optionally enter the XP earned since reaching it. For example, if your level progress is 120 / 250 XP, enter 120. Leave it blank to start at 0 XP within that level. The browser remembers your entries and converts valid total XP saved by older versions. Changing your current level clears the XP field and sets the target to the next level. At level 100, there is no further XP to plan.
 
 Available tokens default to the nonnegative net movement of the **full** saved history, independently of dashboard filters. This may differ from a live balance if history is incomplete; edit it as needed. The optional balance deduction reduces tokens to buy, not tokens to spend for XP. An edited balance lasts for this page session; level and XP persist across reloads.
 
 The imported planning assumptions are 5 XP per spent token, 1 watching XP per 15 minutes capped at level 9, an optional unclaimed 5 XP email bonus below level 10, and an optional eligible 500 XP first-purchase bonus when crossing into Bronze. Bonuses are capped at the XP still required. The first-purchase bonus defaults off when saved purchases exist. Including it requires buying at least one package, even if bonus XP alone reaches the target. These assumptions and unlocks are static references, not verified current rules or account entitlements.
 
 ```text
-raw XP = max(0, target threshold − current XP)
+current total XP = current level threshold + XP earned this level
+raw XP = max(0, target threshold − current total XP)
 paid XP = max(0, raw XP − applicable planned bonuses)
 tokens to spend = ceil(paid XP / 5)
 tokens to buy = max(0, tokens to spend − available tokens used)
